@@ -17,20 +17,10 @@ using std::string;
 using std::vector;
 #include "olc3DGraphicsChess.h"
 
-// Changes the player's color
-//void colorChange(Player& p, const olc::Pixel newColor);
-
-// Changes the piece's color
-template<typename obj>
-void subColorChange(obj& p, const olc::Pixel newColor);
-
 // Moves the piece a given distance
 template<typename pieceOrBoard>
 void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/);
 
-// Sets objects to 0 0 0
-template<typename pieceOrBoard>
-void vertexCorrection(pieceOrBoard& obj);
 
 GameBoard game[1]; // Using an array got me the const void* that I needed to move the memory
 
@@ -113,6 +103,7 @@ int main()
     //AttemptedMove actionInput;
 
     bool run = true;
+    // Use chrono to time movements
     float totalTime = 0.0f;
     float timeHold = 0.0f;
     while (run)
@@ -130,74 +121,42 @@ int main()
                     newTileInfo = checkTileForPiece(mappedViewChess[0], mappedViewChess[0]._tilesAndTime.newTile);
                     tileMovingTo = mappedViewChess[0]._tilesAndTime.newTile;
                 }
-                if (!newTileInfo.piecePresent || mappedViewChess[0]._move._pieceTypeNTeam / 17 != newTileInfo.pieceTypeNTeam / 17) // Check for empty tile or different teams
+                if (!newTileInfo.piecePresent || mappedViewChess[0]._move._pieceTypeNTeam / 7 != newTileInfo.pieceTypeNTeam / 7) // Check for empty tile or different teams
                 {
                     if (newTileInfo.piecePresent) // Removes the piece at destination
                     {
-                        auto playerPieces = [](Player& p, int pieceType) {
-                            float arr[3] = { 0.0f, 0.0f, -10.0f };
-                            if (pieceType < 0)
+                        auto playerPieces = [](Player& p, const TileNTime& tilesAndTime) {
+                            float arr[3] = { 0.0f, 0.0f, -1.0f };
+                            if (tilesAndTime.newTile < 0 || tilesAndTime.newTile > 63)
                             {
                                 std::cout << "Error with playerPieces lambda in Server Main" << std::endl;
                                 return;
                             }
-                            if (pieceType < 9)
-                            {
-                                objectMov(p._pawns[pieceType - 1], arr);
-                                p._pawns[pieceType - 1]._position = -1; // Essentially invalid
-                            }
-
                             else
-                                switch (pieceType)
+                            {
+                                for (int i = 0; i < 16; i++)
                                 {
-                                case 9:
-                                    objectMov(p._rooks[0], arr);
-                                    p._rooks[0]._position = -1; // Essentially invalid
-                                    break;
-                                case 10:
-                                    objectMov(p._knights[0], arr);
-                                    p._knights[0]._position = -1; // Essentially invalid
-                                    break;
-                                case 11:
-                                    objectMov(p._bishops[0], arr);
-                                    p._bishops[0]._position = -1; // Essentially invalid
-                                    break;
-                                case 12:
-                                    objectMov(p._king, arr);
-                                    p._king._position = -1; // Essentially invalid
-                                    break;
-                                case 13:
-                                    objectMov(p._queen, arr);
-                                    p._queen._position = -1; // Essentially invalid
-                                    break;
-                                case 14:
-                                    objectMov(p._bishops[1], arr);
-                                    p._bishops[1]._position = -1; // Essentially invalid
-                                    break;
-                                case 15:
-                                    objectMov(p._knights[1], arr);
-                                    p._knights[1]._position = -1; // Essentially invalid
-                                    break;
-                                case 16:
-                                    objectMov(p._rooks[1], arr);
-                                    p._rooks[1]._position = -1; // Essentially invalid
-                                    break;
-                                default:
-                                    break;
+                                    if (p._pieces[i]._position == tilesAndTime.newTile)
+                                    {
+                                        objectMov(p._pieces[i], arr);
+                                        p._pieces[i]._position = -1;
+                                        return;
+                                    }
                                 }
+                            }
                         };
                         // Makes the piece disappear (moves it below the board) as the new piece is about to decend on its former tile
                         if (mappedViewChess[0]._tilesAndTime.timeSince > 3.0f)
                         {
-                            if (newTileInfo.pieceTypeNTeam > 0 && newTileInfo.pieceTypeNTeam < 17)
-                                playerPieces(mappedViewChess[0]._pOne, newTileInfo.pieceTypeNTeam);
-                            else if (newTileInfo.pieceTypeNTeam > 16 && newTileInfo.pieceTypeNTeam < 33)
-                                playerPieces(mappedViewChess[0]._pTwo, newTileInfo.pieceTypeNTeam - 16);
+                            if (newTileInfo.pieceTypeNTeam > 0 && newTileInfo.pieceTypeNTeam < 7)
+                                playerPieces(mappedViewChess[0]._pOne, mappedViewChess[0]._tilesAndTime);
+                            else if (newTileInfo.pieceTypeNTeam > 6 && newTileInfo.pieceTypeNTeam < 13)
+                                playerPieces(mappedViewChess[0]._pTwo, mappedViewChess[0]._tilesAndTime);
                         }
                     }
                     if (mappedViewChess[0]._pieceInMotion)
                     {
-                        mappedViewChess[0]._pieceInMotion = pieceInQuestion(mappedViewChess[0], mappedViewChess[0]._move._pieceTypeNTeam, mappedViewChess[0]._tilesAndTime);
+                        mappedViewChess[0]._pieceInMotion = getPieceAndMoveIt(mappedViewChess[0], mappedViewChess[0]._tilesAndTime);
                         if (!mappedViewChess[0]._pieceInMotion)
                         {
                             mappedViewChess[0]._tilesAndTime.timeSince = 0.0f;
@@ -382,14 +341,6 @@ int main()
 }
 
 
-// Changes the piece's color
-template<typename obj>
-void subColorChange(obj& p, const olc::Pixel newColor)
-{
-    for (int i = 0; i < p._triCount; i++)
-        p._tris[i].color = newColor;
-}
-
 // Moves the piece a given distance
 template<typename pieceOrBoard>
 void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/)
@@ -399,29 +350,4 @@ void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, 
     {
         p._tris[i] += arr;
     }
-}
-
-// Sets objects to 0 0 0
-template<typename pieceOrBoard>
-void vertexCorrection(pieceOrBoard& obj)
-{
-    float x = obj._tris[0].p[0].x;
-    float y = obj._tris[0].p[0].y;
-    float z = obj._tris[0].p[0].z;
-    for (int i = 0; i < obj._triCount; i++)
-    {
-        // Find lowest x, y, and z
-        for (int k = 0; k < 3; k++)
-        {
-            if (obj._tris[i].p[k].x < x)
-                x = obj._tris[i].p[k].x;
-            if (obj._tris[i].p[k].y < y)
-                y = obj._tris[i].p[k].y;
-            if (obj._tris[i].p[k].z < z)
-                z = obj._tris[i].p[k].z;
-        }
-    }
-    // Set the position to 0 0 0 
-    float arr[3] = { -x + obj._xPos, -y + obj._yPos, -z + obj._zPos };
-    objectMov(obj, arr);
 }

@@ -104,48 +104,52 @@ public:
 	int _triCount = 0;
 };
 
+// REMOVE ALL DERIVED PIECES
 struct Piece : public Object
 {
 	using Object::Object;
-	short _position = 0; // 0 -> 63 for board
+	short _position = 0; // 0 -> 63 for board, doubles as a unique ID for the piece
 	bool _selected = false;
-};
-
-struct Pawn : public Piece
-{
-	using Piece::Piece;
-	triangle _tris[12];
-};
-
-struct Bishop : public Piece
-{
-	using Piece::Piece;
-	triangle _tris[6];
-};
-
-struct Knight : public Piece
-{
-	using Piece::Piece;
 	triangle _tris[24];
+	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 16 for player 2 equivalent
+	int PieceTypeNTeam = 1; 
 };
-
-struct Rook : public Piece
-{
-	using Piece::Piece;
-	triangle _tris[12];
-};
-
-struct Queen : public Piece
-{
-	using Piece::Piece;
-	triangle _tris[12];
-};
-
-struct King : public Piece
-{
-	using Piece::Piece;
-	triangle _tris[18];
-};
+//
+//struct Pawn : public Piece
+//{
+//	using Piece::Piece;
+//	triangle _tris[12];
+//};
+//
+//struct Bishop : public Piece
+//{
+//	using Piece::Piece;
+//	triangle _tris[6];
+//};
+//
+//struct Knight : public Piece
+//{
+//	using Piece::Piece;
+//	triangle _tris[24];
+//};
+//
+//struct Rook : public Piece
+//{
+//	using Piece::Piece;
+//	triangle _tris[12];
+//};
+//
+//struct Queen : public Piece
+//{
+//	using Piece::Piece;
+//	triangle _tris[12];
+//};
+//
+//struct King : public Piece
+//{
+//	using Piece::Piece;
+//	triangle _tris[18];
+//};
 
 struct Player
 {
@@ -157,6 +161,62 @@ struct Player
 
 		// Pieces
 		for (int i = 0; i < 8; i++)
+		{
+			Piece pawn(0.0f + offsetXY + squareDimension * (float)i, 0.0f + offsetXY + squareDimension + (team * squareDimension * 5.0f), boardTop, 12);
+			_pieces[i] = pawn;
+			_pieces[i].PieceTypeNTeam = 1 + 6 * team;
+			_pieces[i]._position = (6 - 5 * team) + 8 * i; // If player one (team 0) set pawns at x = 6 else at 1
+		}
+		float secondRowOffset = 0.0f + offsetXY + (team * squareDimension * 7.0f);
+		for (int j = 0; j < 8; j++)
+		{
+			int i = j + 8;
+			float columnOffset = 0.0f + offsetXY + squareDimension * float(j);
+			Piece piece(columnOffset, secondRowOffset, boardTop, 0);
+			_pieces[i] = piece;
+			_pieces[i]._position = (7 + 8 * i - 7 * team); // Set the piece's position
+
+			switch (j)
+			{
+			case 0: // Rook
+				_pieces[i].PieceTypeNTeam = 2 + 6 * team;
+				_pieces[i]._triCount = 12;
+				break;
+			case 1: // Knight
+				_pieces[i]._xPos = 0.0f + offsetXY - squareDimension * 0.5f; // Need extra adjustment for the knights
+				_pieces[i].PieceTypeNTeam = 3 + 6 * team;
+				_pieces[i]._triCount = 24;
+				break;
+			case 2: // Bishop
+				_pieces[i].PieceTypeNTeam = 4 + 6 * team;
+				_pieces[i]._triCount = 6;
+				break;
+			case 3: // King
+				_pieces[i].PieceTypeNTeam = 5 + 6 * team;
+				_pieces[i]._triCount = 18;
+				break;
+			case 4: // Queen
+				_pieces[i].PieceTypeNTeam = 6 + 6 * team;
+				_pieces[i]._triCount = 12;
+				break;
+			case 5: // Bishop
+				_pieces[i].PieceTypeNTeam = 4 + 6 * team;
+				_pieces[i]._triCount = 6;
+				break;
+			case 6: // Knight
+				_pieces[i]._xPos = 0.0f + offsetXY + squareDimension * 4.5f; // Need extra adjustment for the knights
+				_pieces[i].PieceTypeNTeam = 3 + 6 * team;
+				_pieces[i]._triCount = 24;
+				break;
+			case 7: // Rook
+				_pieces[i].PieceTypeNTeam = 2 + 6 * team;
+				_pieces[i]._triCount = 12;
+				break;
+			default:
+				break;
+			}
+		}
+		/*for (int i = 0; i < 8; i++)
 		{
 			Pawn pawn(0.0f + offsetXY + squareDimension * (float)i, 0.0f + offsetXY + squareDimension + (team * squareDimension * 5.0f), boardTop, 12);
 			_pawns[i] = pawn;
@@ -193,17 +253,18 @@ struct Player
 
 		Rook rook2(0.0f + offsetXY + squareDimension * 7.0f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 12);
 		_rooks[1] = rook2;
-		_rooks[1]._position = (63 - 7 * team);
+		_rooks[1]._position = (63 - 7 * team);*/
 	}
 
 	int _team = 0;
+	Piece _pieces[16];
 
-	Pawn _pawns[8];
+	/*Pawn _pawns[8];
 	Bishop _bishops[2];
 	Knight _knights[2];
 	Rook _rooks[2];
 	Queen _queen;
-	King _king;
+	King _king;*/
 };
 
 struct AttemptedMove
@@ -214,6 +275,7 @@ struct AttemptedMove
 struct TileData
 {
 	bool piecePresent = false;
+	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 16 for player 2 equivalent
 	int pieceTypeNTeam = 0; // 1-8 for pawn, 9/16 for rook, 10/15 for knight, 11/14 for bishop, 12 for king, 13 for queen and add 16 for player 2 equivalent
 	//Piece* peicePtr = nullptr;
 };
@@ -257,8 +319,7 @@ template<typename obj>
 void subColorChange(obj& p, const olc::Pixel newColor);
 
 // Checks if the given piece is on the given tile
-template<typename piece>
-TileData pieceCheck(piece& p, int pieceType, int team, int tile);
+TileData pieceTileCheck(Piece& p, int tile);
 
 // Looks at all the pieces on the gameboard and checks if they are on the given tile
 TileData checkTileForPiece(GameBoard& game, int tileToCheck);
@@ -268,11 +329,10 @@ template<typename pieceOrBoard>
 void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/);
 
 // Moves the piece to the new tile
-template<typename piece>
-bool movePiece(piece& p, const TileNTime& tilesAndTime);
+bool movePiece(Piece& p, const TileNTime& tilesAndTime);
 
 // Gets the piece specified by pieceTypeNTeam
-bool pieceInQuestion(GameBoard& game, int pieceTypeNTeam, const TileNTime& tilesAndTime);
+bool getPieceAndMoveIt(GameBoard& game, const TileNTime& tilesAndTime);
 
 // Sets objects to 0 0 0
 template<typename pieceOrBoard>
@@ -317,7 +377,7 @@ struct mesh
 			{
 				dataLineStarting.push_back(tris.size());
 				objectcount++;
-				//std::cout << tris.size() << " ";
+				std::cout << tris.size() << " ";
 			}
 
 			if (line[0] == 'v')
@@ -383,6 +443,8 @@ struct mesh
 			}
 		}
 
+		std::cout << std::endl;
+
 		dataLineStarting.push_back(174);
 		int triIndex = 0;
 		int modelIndex = 0;
@@ -396,125 +458,125 @@ struct mesh
 				//std::cout << "            modelIndex: " << modelIndex << std::endl;
 			}
 
-			//std::cout << "tri num: " << i << std::endl;
+			//std::cout << "tri num: " << i << "   triIndex: " << triIndex << std::endl;
 			switch (modelIndex - 1)
 			{
 				// P1
 			case 0: // WhBishops
-				if (board._pOne._bishops[0]._triCount < triIndex)
+				if (board._pOne._pieces[10]._triCount < triIndex)
 				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[11]._triCount << std::endl;
 					break;
 				}
-				board._pOne._bishops[0]._tris[triIndex] = tris[i];
-				board._pOne._bishops[1]._tris[triIndex] = tris[i];
+				board._pOne._pieces[10]._tris[triIndex] = tris[i];
+				board._pOne._pieces[13]._tris[triIndex] = tris[i];
 				break;
 
 			case 1: // WhPawns
-				if (board._pOne._pawns[0]._triCount < triIndex)
+				if (board._pOne._pieces[0]._triCount < triIndex)
 				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[0]._triCount << std::endl;
 					break;
 				}
 				for (int k = 0; k < 8; k++)
-					board._pOne._pawns[k]._tris[triIndex] = tris[i];
+					board._pOne._pieces[k]._tris[triIndex] = tris[i];
 				break;
 
 			case 2: // WhQueen
-				if (board._pOne._queen._triCount < triIndex)
+				if (board._pOne._pieces[12]._triCount < triIndex)
 				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[13]._triCount << std::endl;
 					break;
 				}
-				board._pOne._queen._tris[triIndex] = tris[i];
+				board._pOne._pieces[12]._tris[triIndex] = tris[i];
 				break;
 
 			case 3: // WhKnight
-				if (board._pOne._knights[0]._triCount < triIndex)
+				if (board._pOne._pieces[9]._triCount < triIndex)
 				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[10]._triCount << std::endl;
 					break;
 				}
-				board._pOne._knights[0]._tris[triIndex] = tris[i];
-				board._pOne._knights[1]._tris[triIndex] = tris[i];
+				board._pOne._pieces[9]._tris[triIndex] = tris[i];
+				board._pOne._pieces[14]._tris[triIndex] = tris[i];
 				break;
 
 			case 4: // WhKing
-				if (board._pOne._king._triCount < triIndex)
+				if (board._pOne._pieces[11]._triCount < triIndex)
 				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[12]._triCount << std::endl;
 					break;
 				}
-				board._pOne._king._tris[triIndex] = tris[i];
+				board._pOne._pieces[11]._tris[triIndex] = tris[i];
 				break;
 
 			case 5: // WhRook
-				if (board._pOne._rooks[0]._triCount < triIndex)
+				if (board._pOne._pieces[8]._triCount < triIndex)
 				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[9]._triCount << std::endl;
 					break;
 				}
-				board._pOne._rooks[0]._tris[triIndex] = tris[i];
-				board._pOne._rooks[1]._tris[triIndex] = tris[i];
+				board._pOne._pieces[8]._tris[triIndex] = tris[i];
+				board._pOne._pieces[15]._tris[triIndex] = tris[i];
 				break;
 
 				// P2
 			case 6: // GrBishops
-				if (board._pTwo._bishops[0]._triCount < triIndex)
+				if (board._pTwo._pieces[10]._triCount < triIndex)
 				{
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._bishops[0]._tris[triIndex] = tris[i];
-				board._pTwo._bishops[1]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[10]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[13]._tris[triIndex] = tris[i];
 				break;
 
 			case 7: // GrPawns
-				if (board._pTwo._pawns[0]._triCount < triIndex)
+				if (board._pTwo._pieces[0]._triCount < triIndex)
 				{
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
 				for (int k = 0; k < 8; k++)
-					board._pTwo._pawns[k]._tris[triIndex] = tris[i];
+					board._pTwo._pieces[k]._tris[triIndex] = tris[i];
 				break;
 
 			case 8: // GrQueen
-				if (board._pTwo._queen._triCount < triIndex)
+				if (board._pTwo._pieces[12]._triCount < triIndex)
 				{
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._queen._tris[triIndex] = tris[i];
+				board._pTwo._pieces[12]._tris[triIndex] = tris[i];
 				break;
 
 			case 9: // GrKnight
-				if (board._pTwo._knights[0]._triCount < triIndex)
+				if (board._pTwo._pieces[9]._triCount < triIndex)
 				{
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._knights[0]._tris[triIndex] = tris[i];
-				board._pTwo._knights[1]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[9]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[14]._tris[triIndex] = tris[i];
 				break;
 
 			case 10: // GrKing
-				if (board._pTwo._king._triCount < triIndex)
+				if (board._pTwo._pieces[11]._triCount < triIndex)
 				{
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._king._tris[triIndex] = tris[i];
+				board._pTwo._pieces[11]._tris[triIndex] = tris[i];
 				break;
 
 			case 11: // GrRook
-				if (board._pTwo._rooks[0]._triCount < triIndex)
+				if (board._pTwo._pieces[8]._triCount < triIndex)
 				{
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._rooks[0]._tris[triIndex] = tris[i];
-				board._pTwo._rooks[1]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[8]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[15]._tris[triIndex] = tris[i];
 				break;
 
 			case 12: // Board

@@ -36,29 +36,17 @@ bool olc3DGraphics::OnUserCreate()
 		subColorChange((*_chess), { 106, 181, 0, 0 });
 
 		// Player one's pieces
-		vertexCorrection((*_chess)._pOne._bishops[0]);
-		vertexCorrection((*_chess)._pOne._bishops[1]);
-		vertexCorrection((*_chess)._pOne._king);
-		vertexCorrection((*_chess)._pOne._knights[0]);
-		vertexCorrection((*_chess)._pOne._knights[1]);
-		for (int i = 0; i < 8; i++)
-			vertexCorrection((*_chess)._pOne._pawns[i]);
-		vertexCorrection((*_chess)._pOne._queen);
-		vertexCorrection((*_chess)._pOne._rooks[0]);
-		vertexCorrection((*_chess)._pOne._rooks[1]);
+		for (int i = 0; i < 16; i++)
+		{
+			// Player one's pieces
+			vertexCorrection((*_chess)._pOne._pieces[i]);
+			// Player two's pieces
+			vertexCorrection((*_chess)._pTwo._pieces[i]);
+		}
+		// Player one's color
 		colorChange((*_chess)._pOne, { 255, 0, 0, 0 });
 
-		// Player two's pieces
-		vertexCorrection((*_chess)._pTwo._bishops[0]);
-		vertexCorrection((*_chess)._pTwo._bishops[1]);
-		vertexCorrection((*_chess)._pTwo._king);
-		vertexCorrection((*_chess)._pTwo._knights[0]);
-		vertexCorrection((*_chess)._pTwo._knights[1]);
-		for (int i = 0; i < 8; i++)
-			vertexCorrection((*_chess)._pTwo._pawns[i]);
-		vertexCorrection((*_chess)._pTwo._queen);
-		vertexCorrection((*_chess)._pTwo._rooks[0]);
-		vertexCorrection((*_chess)._pTwo._rooks[1]);
+		// Player two's color
 		colorChange((*_chess)._pTwo, { 0, 255, 255, 0 });
 	}
 
@@ -1087,16 +1075,8 @@ float triangleArea(Point2D p1, Point2D p2, Point2D p3)
 // Changes the player's pieces' color
 void colorChange(Player& p, const olc::Pixel newColor)
 {
-	subColorChange(p._bishops[0], newColor);
-	subColorChange(p._bishops[1], newColor);
-	subColorChange(p._king, newColor);
-	subColorChange(p._knights[0], newColor);
-	subColorChange(p._knights[1], newColor);
-	for (int i = 0; i < 8; i++)
-		subColorChange(p._pawns[i], newColor);
-	subColorChange(p._queen, newColor);
-	subColorChange(p._rooks[0], newColor);
-	subColorChange(p._rooks[1], newColor);
+	for (int i = 0; i < 16; i++)
+		subColorChange(p._pieces[i], newColor);
 }
 
 // Changes the piece's color
@@ -1110,35 +1090,17 @@ void subColorChange(obj& p, const olc::Pixel newColor)
 // Looks at all the pieces on the gameboard and checks if they are on the given tile
 TileData checkTileForPiece(GameBoard& game, int tileToCheck)
 {
+	// Checks if a player's piece is on the given tile
 	auto playerCheck = [](Player& p, int tile) {
 		TileData t;
-		for (int i = 0; i < 8; i++) // Pawns
+		for (int i = 0; i < 16; i++) // Pawns
 		{
-			t =	pieceCheck(p._pawns[i], i + 1, p._team, tile);
+			t = pieceTileCheck(p._pieces[i], tile);
 			if (t.piecePresent)
+			{
+				t.pieceTypeNTeam = p._pieces[i].PieceTypeNTeam;
 				return t;
-		}
-		// 1-8 for pawn, 9/16 for rook, 10/15 for knight, 11/14 for bishop, 12 for king, 13 for queen
-		t = pieceCheck(p._king, 12, p._team, tile);
-		if (t.piecePresent)
-			return t;
-		t = pieceCheck(p._queen, 13, p._team, tile);
-		if (t.piecePresent)
-			return t;
-
-		for (int i = 0; i < 2; i++)
-		{
-			t = pieceCheck(p._rooks[i], 9 + 7 * i, p._team, tile);
-			if (t.piecePresent)
-				return t;
-
-			t = pieceCheck(p._knights[i], 10 + 5 * i, p._team, tile);
-			if (t.piecePresent)
-				return t;
-
-			t = pieceCheck(p._bishops[i], 11 + 3 * i, p._team, tile);
-			if (t.piecePresent)
-				return t;
+			}
 		}
 		t = { false, 0 };
 		return t;
@@ -1157,14 +1119,13 @@ TileData checkTileForPiece(GameBoard& game, int tileToCheck)
 }
 
 // Checks if the given piece is on the given tile
-template<typename piece>
-TileData pieceCheck(piece& p, int pieceType, int team, int tile) 
+TileData pieceTileCheck(Piece& p, int tile) 
 {
 	//std::cout << "(pieceCheck()) -> Piece type: " << pieceType << " Supposed position: " << p._position << std::endl;
 	if (p._position == tile)
 	{
 		p._selected = true;
-		return { true, pieceType + 16 * team };
+		return { true, 0 };
 	}
 	else
 		return { false, 0};
@@ -1182,8 +1143,7 @@ void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, 
 }
 
 // Moves the piece to the new tile
-template<typename piece>
-bool movePiece(piece& p, const TileNTime& tilesAndTime)
+bool movePiece(Piece& p, const TileNTime& tilesAndTime)
 {
 	float tRise = 1.5f;
 	float tShift = 1.5f + tRise;
@@ -1231,53 +1191,106 @@ bool movePiece(piece& p, const TileNTime& tilesAndTime)
 }
 
 // Gets the piece specified by pieceTypeNTeam
-bool pieceInQuestion(GameBoard& game, int pieceTypeNTeam, const TileNTime& tilesAndTime)
+bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime& tilesAndTime)
 {
-	auto playerPieces = [](Player& p, int pieceType, const TileNTime& tilesAndTime) {
+	auto playerPieces = [](Player& p,/* int pieceType,*/ const TileNTime& tilesAndTime) {
+
+		int piece = -1;
+		for (int i = 0; i < 16; i++)
+		{
+			if (p._pieces[i]._position == tilesAndTime.oldTile)
+				piece = i;
+		}
+		if (piece == -1)
+			return false;
+		else
+			return movePiece(p._pieces[piece], tilesAndTime);
+		/* piece moving rules here
+
+		int pieceType = p._pieces[piece].PieceTypeNTeam;
+		if(pieceType > 6)
+			pieceType - 6;
 		if (pieceType < 0)
 		{
-			std::cout << "Error with pieceInQuestion lambda" << std::endl;
+			std::cout << "Error with pieceInQuestion function" << std::endl;
 			return false;
 		}
-		if (pieceType < 9)
-			return movePiece(p._pawns[pieceType - 1], tilesAndTime);
 		else
 			switch (pieceType)
 			{
-			case 9:
-				return movePiece(p._rooks[0], tilesAndTime);
+			case 1:
+				return movePiece(p._pieces[piece], tilesAndTime);
 				break;
-			case 10:
-				return movePiece(p._knights[0], tilesAndTime);
+			case 2:
+				return movePiece(p._pieces[piece], tilesAndTime);
 				break;
-			case 11:
-				return movePiece(p._bishops[0], tilesAndTime);
+			case 3:
+				return movePiece(p._pieces[piece], tilesAndTime);
 				break;
-			case 12:
+			case 4:
 				return movePiece(p._king, tilesAndTime);
 				break;
-			case 13:
+			case 5:
 				return movePiece(p._queen, tilesAndTime);
 				break;
-			case 14:
+			case 6:
 				return movePiece(p._bishops[1], tilesAndTime);
-				break;
-			case 15:
-				return movePiece(p._knights[1], tilesAndTime);
-				break;
-			case 16:
-				return movePiece(p._rooks[1], tilesAndTime);
 				break;
 			default:
 				break;
-			}
-	};
-	if (pieceTypeNTeam > 0 && pieceTypeNTeam < 17)
-		return playerPieces(game._pOne, pieceTypeNTeam, tilesAndTime);
-	else if (pieceTypeNTeam > 16 && pieceTypeNTeam < 33)
-		return playerPieces(game._pTwo, pieceTypeNTeam - 16, tilesAndTime);
+			}*/
+		};
+	if (playerPieces(game._pOne, tilesAndTime))
+		return true;
+	else if (playerPieces(game._pTwo, tilesAndTime))
+		return true;
 	else
 		return false;
+	//auto playerPieces = [](Player& p, int pieceType, const TileNTime& tilesAndTime) {
+	//	if (pieceType < 0)
+	//	{
+	//		std::cout << "Error with pieceInQuestion function" << std::endl;
+	//		return false;
+	//	}
+	//	if (pieceType < 9)
+	//		return movePiece(p._pawns[pieceType - 1], tilesAndTime);
+	//	else
+	//		switch (pieceType)
+	//		{
+	//		case 9:
+	//			return movePiece(p._rooks[0], tilesAndTime);
+	//			break;
+	//		case 10:
+	//			return movePiece(p._knights[0], tilesAndTime);
+	//			break;
+	//		case 11:
+	//			return movePiece(p._bishops[0], tilesAndTime);
+	//			break;
+	//		case 12:
+	//			return movePiece(p._king, tilesAndTime);
+	//			break;
+	//		case 13:
+	//			return movePiece(p._queen, tilesAndTime);
+	//			break;
+	//		case 14:
+	//			return movePiece(p._bishops[1], tilesAndTime);
+	//			break;
+	//		case 15:
+	//			return movePiece(p._knights[1], tilesAndTime);
+	//			break;
+	//		case 16:
+	//			return movePiece(p._rooks[1], tilesAndTime);
+	//			break;
+	//		default:
+	//			break;
+	//		}
+	//};
+	//if (pieceTypeNTeam > 0 && pieceTypeNTeam < 17)
+	//	return playerPieces(game._pOne, pieceTypeNTeam, tilesAndTime);
+	//else if (pieceTypeNTeam > 16 && pieceTypeNTeam < 33)
+	//	return playerPieces(game._pTwo, pieceTypeNTeam - 16, tilesAndTime);
+	//else
+	//	return false;
 };
 
 // Sets objects to 0 0 0
@@ -1314,20 +1327,8 @@ void trangleSubLoader(const pieceOrBoard& obj, vector<triangle>& trangles)
 
 void tranglePlayerSubLoader(const Player& p, vector<triangle>& trangles)
 {
-	for (int i = 0; i < 8; i++)
-		trangleSubLoader(p._pawns[i], trangles);
-
-	trangleSubLoader(p._king, trangles);
-	trangleSubLoader(p._queen, trangles);
-
-	trangleSubLoader(p._rooks[0], trangles);
-	trangleSubLoader(p._rooks[1], trangles);
-
-	trangleSubLoader(p._knights[0], trangles);
-	trangleSubLoader(p._knights[1], trangles);
-
-	trangleSubLoader(p._bishops[0], trangles);
-	trangleSubLoader(p._bishops[1], trangles);
+	for (int i = 0; i < 16; i++)
+		trangleSubLoader(p._pieces[i], trangles);
 }
 
 vector<triangle> trangleLoader(const GameBoard& gameBoard)
