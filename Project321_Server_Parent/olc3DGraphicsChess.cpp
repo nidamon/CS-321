@@ -457,11 +457,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 		(*_chess)._pieceInMotion = true;
 		_pieceSelector = false;
 	}
-	if ((*_chess)._pieceInMotion && _myTurn == 1) // player 1 runs the piece moving time
-	{
-		(*_chess)._tilesAndTime.timeSince += fElapsedTime; // Increment the time since
-		(*_chess)._tilesAndTime.elapsedTime = fElapsedTime; // Server uses these increments
-	}
+
 	if ((*_chess)._pieceInMotion && _selectedPiece.piecePresent) // player 1 runs the piece moving time
 	{
 		std::cout << "Picked destination" << std::endl;
@@ -1143,20 +1139,20 @@ void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, 
 }
 
 // Moves the piece to the new tile
-bool movePiece(Piece& p, const TileNTime& tilesAndTime)
+bool movePiece(Piece& p, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove)
 {
 	float tRise = 1.5f;
 	float tShift = 1.5f + tRise;
-	float tLower = tRise + tShift;
+	float tLower = tRise + tShift + 0.1; // Some small amount of additional time to correct with the board
 
-	float zSpeed = 0.18f; // change to height rise to
+	float zSpeed = 2.0f; // change to height rise to
 
 	// Raise the piece
 	if (tilesAndTime.timeSince < tRise)
 	{
 		for (int i = 0; i < p._triCount; i++)
 			for (int k = 0; k < 3; k++)
-				p._tris[i].p[k].z += zSpeed;
+				p._tris[i].p[k].z += zSpeed * tilesAndTime.elapsedTime;
 	}
 	// Shift the piece
 	else if (tilesAndTime.timeSince < tShift)
@@ -1167,11 +1163,40 @@ bool movePiece(Piece& p, const TileNTime& tilesAndTime)
 		float squareDimension = 9.9675f;
 		float shiftSpeedx = squareDimension * deltaX / (tShift - tRise);
 		float shiftSpeedy = squareDimension * deltaY / (tShift - tRise);
+
+		// Adjust the movement to lock into the right position
+		float moveX = -shiftSpeedx * tilesAndTime.elapsedTime;
+		/*if (moveX < 0.0f)
+			moveX = -moveX;
+		attemptedMove._xDist -= moveX;
+		if (attemptedMove._xDist < 0.0f)
+		{
+			if (-shiftSpeedx > 0.0f)
+				moveX = -attemptedMove._xDist;
+			else
+				moveX = attemptedMove._xDist;
+			attemptedMove._xDist = 0.0f;
+		}*/
+
+		// Adjust the movement to lock into the right position
+		float moveY = shiftSpeedy * tilesAndTime.elapsedTime;
+		/*if (moveY < 0.0f)
+			moveY = -moveY;
+		attemptedMove._yDist -= moveY;
+		if (attemptedMove._yDist < 0.0f)
+		{
+			if (shiftSpeedy > 0.0f)
+				moveY = -attemptedMove._yDist;
+			else
+				moveY = attemptedMove._yDist;
+			attemptedMove._yDist = 0.0f;
+		}*/
+
 		for (int i = 0; i < p._triCount; i++)
 			for (int k = 0; k < 3; k++)
 			{
-				p._tris[i].p[k].x += -shiftSpeedx * tilesAndTime.elapsedTime;
-				p._tris[i].p[k].y += shiftSpeedy * tilesAndTime.elapsedTime;
+				p._tris[i].p[k].x += moveX;
+				p._tris[i].p[k].y += moveY;
 			}
 	}
 	// Lower the piece
@@ -1179,21 +1204,31 @@ bool movePiece(Piece& p, const TileNTime& tilesAndTime)
 	{
 		for (int i = 0; i < p._triCount; i++)
 			for (int k = 0; k < 3; k++)
-				p._tris[i].p[k].z -= zSpeed;
+				p._tris[i].p[k].z -= zSpeed * tilesAndTime.elapsedTime;
 	}
 	// Stop calling movePiece function
 	else if (tilesAndTime.timeSince > tLower)
 	{
+		// Move piece back to the top of the board if it is below it
+		for (int i = 0; i < p._triCount; i++)
+			for (int k = 0; k < 3; k++)
+				if (p._tris[i].p[k].z < 0.0f)
+				{
+					float arr[3] = { 0.0f, 0.0f, -(p._tris[i].p[k].z) };
+					objectMov(p, arr);
+				}
+
 		p._position = tilesAndTime.newTile;
 		return false;
 	}
+
 	return true;
 }
 
 // Gets the piece specified by pieceTypeNTeam
-bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime& tilesAndTime)
+bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove)
 {
-	auto playerPieces = [](Player& p,/* int pieceType,*/ const TileNTime& tilesAndTime) {
+	auto playerPieces = [](Player& p,/* int pieceType,*/ const TileNTime& tilesAndTime, AttemptedMove& attemptedMove) {
 
 		int piece = -1;
 		for (int i = 0; i < 16; i++)
@@ -1204,7 +1239,7 @@ bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime&
 		if (piece == -1)
 			return false;
 		else
-			return movePiece(p._pieces[piece], tilesAndTime);
+			return movePiece(p._pieces[piece], tilesAndTime, attemptedMove);
 		/* piece moving rules here
 
 		int pieceType = p._pieces[piece].PieceTypeNTeam;
@@ -1240,9 +1275,9 @@ bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime&
 				break;
 			}*/
 		};
-	if (playerPieces(game._pOne, tilesAndTime))
+	if (playerPieces(game._pOne, tilesAndTime, attemptedMove))
 		return true;
-	else if (playerPieces(game._pTwo, tilesAndTime))
+	else if (playerPieces(game._pTwo, tilesAndTime, attemptedMove))
 		return true;
 	else
 		return false;

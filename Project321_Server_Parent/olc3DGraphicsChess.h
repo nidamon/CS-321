@@ -174,7 +174,7 @@ struct Player
 			float columnOffset = 0.0f + offsetXY + squareDimension * float(j);
 			Piece piece(columnOffset, secondRowOffset, boardTop, 0);
 			_pieces[i] = piece;
-			_pieces[i]._position = (7 + 8 * i - 7 * team); // Set the piece's position
+			_pieces[i]._position = (7 + 8 * j - 7 * team); // Set the piece's position
 
 			switch (j)
 			{
@@ -270,6 +270,8 @@ struct Player
 struct AttemptedMove
 {
 	int _pieceTypeNTeam;
+	float _xDist;
+	float _yDist;
 };
 
 struct TileData
@@ -329,10 +331,10 @@ template<typename pieceOrBoard>
 void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/);
 
 // Moves the piece to the new tile
-bool movePiece(Piece& p, const TileNTime& tilesAndTime);
+bool movePiece(Piece& p, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove);
 
 // Gets the piece specified by pieceTypeNTeam
-bool getPieceAndMoveIt(GameBoard& game, const TileNTime& tilesAndTime);
+bool getPieceAndMoveIt(GameBoard& game, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove);
 
 // Sets objects to 0 0 0
 template<typename pieceOrBoard>
