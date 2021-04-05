@@ -52,7 +52,6 @@ bool olc3DGraphics::OnUserCreate()
 
 	decaltexWH = new olc::Decal(new olc::Sprite("../Objects/whmarble.jpg"));
 	decaltexGR = new olc::Decal(new olc::Sprite("../Objects/grmarble.jpg"));
-	//decaltexPM = new olc::Decal(new olc::Sprite("./Objects/purmesh.jpg"));
 	decaltexBR = new olc::Decal(new olc::Sprite("../Objects/brmarble.jpg"));
 	decaltexBoard = new olc::Decal(new olc::Sprite("../Objects/Chess Board.png"));
 
@@ -169,31 +168,6 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 			std::cout << fCameraSpeed << std::endl;
 
 		}
-		//if (GetKey(olc::N).bHeld) // Negate
-		//{
-		//	if (GetKey(olc::C).bHeld) // worldRotationX
-		//		worldRotationX -= 1.0f * fElapsedTime;
-		//	if (GetKey(olc::V).bHeld) // worldRotationy
-		//		worldRotationY -= 1.0f * fElapsedTime;
-		//	if (GetKey(olc::B).bHeld) // worldRotationZ
-		//		worldRotationZ -= 1.0f * fElapsedTime;
-		//}
-		//else
-		//{
-		//	if (GetKey(olc::C).bHeld) // worldRotationX
-		//		worldRotationX += 1.0f * fElapsedTime;
-		//	if (GetKey(olc::V).bHeld) // worldRotationy
-		//		worldRotationY += 1.0f * fElapsedTime;
-		//	if (GetKey(olc::B).bHeld) // worldRotationZ
-		//		worldRotationZ += 1.0f * fElapsedTime;
-		//}
-		//if (GetKey(olc::M).bHeld) // Angle Offsets
-		//{
-		//	std::cout << "OffsetX: " << worldRotationX << std::endl;
-		//	std::cout << "OffsetY: " << worldRotationY << std::endl;
-		//	std::cout << "OffsetZ: " << worldRotationZ << std::endl;
-		//}
-
 	}
 
 	// Set up rotation matrices
@@ -345,7 +319,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 		pDepthBuffer[i] = 0.0f;
 
 	//vector<triangle> topBoardTrangles;
-
+	bool clickedOnTheBoard = false;
 	if (IsFocused())
 	{
 		if ((*_chess)._turn == _myTurn)
@@ -435,6 +409,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 					if (selectedtri)
 					{
 						std::cout << "Tile Selected: " << (*_chess)._tilesAndTime.newTile /*_tileSelected*/ << std::endl;
+						clickedOnTheBoard = true;
 						selectedtri = false;
 					}
 					continue;
@@ -452,9 +427,17 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 
 	if (_pieceSelector && _selectedPiece.piecePresent) // If we've picked a tile and we have a pointer to the piece we want to move
 	{
-		(*_chess)._turn = 0;
-		// Move the piece 
-		(*_chess)._pieceInMotion = true;
+		int tile = (*_chess)._tilesAndTime.newTile;
+		if (_availableTiles.end() != std::find_if(_availableTiles.begin(), _availableTiles.end(), [tile](const tileAvailability& t) { return (t._tile == tile); } ))
+		{
+			(*_chess)._turn = 0;
+			// Move the piece 
+			(*_chess)._pieceInMotion = true;
+		}
+		else // Pick a new piece
+		{
+			_selectedPiece.piecePresent = false;
+		}
 		_pieceSelector = false;
 	}
 
@@ -462,94 +445,18 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 	{
 		std::cout << "Picked destination" << std::endl;
 		_selectedPiece.piecePresent = false;
-		/*auto pieceInQuestion = [](GameBoard& game, int pieceTypeNTeam, const TileNTime& tilesAndTime) {
-			auto playerPieces = [](Player& p, int pieceType, const TileNTime& tilesAndTime) {
-				if (pieceType < 0)
-				{
-					std::cout << "Error with pieceInQuestion lambda" << std::endl;
-					return false;
-				}
-				if (pieceType < 9)
-					return movePiece(p._pawns[pieceType-1], tilesAndTime);
-				else
-					switch (pieceType)
-					{
-					case 9:
-						return movePiece(p._rooks[0], tilesAndTime);
-						break;
-					case 10:
-						return movePiece(p._knights[0], tilesAndTime);
-						break;
-					case 11:
-						return movePiece(p._bishops[0], tilesAndTime);
-						break;
-					case 12:
-						return movePiece(p._king, tilesAndTime);
-						break;
-					case 13:
-						return movePiece(p._queen, tilesAndTime);
-						break;
-					case 14:
-						return movePiece(p._bishops[1], tilesAndTime);
-						break;
-					case 15:
-						return movePiece(p._knights[1], tilesAndTime);
-						break;
-					case 16:
-						return movePiece(p._rooks[1], tilesAndTime);
-						break;
-					default:
-						break;
-					}
-			};
-			if (pieceTypeNTeam > 0 && pieceTypeNTeam < 17)
-				return playerPieces(game._pOne, pieceTypeNTeam, tilesAndTime);
-			else if (pieceTypeNTeam > 16 && pieceTypeNTeam < 33)
-				return playerPieces(game._pTwo, pieceTypeNTeam - 16, tilesAndTime);
-			else
-				return false;
-		};*/
-		//(*_chess)._pieceInMotion = pieceInQuestion((*_chess), _selectedPiece.pieceTypeNTeam, (*_chess)._tilesAndTime);
-		//if (!(*_chess)._pieceInMotion)
-		//	(*_chess)._tilesAndTime.timeSince = 0.0f;
 	}
 
-	if (_pieceSelector && !_selectedPiece.piecePresent)
+	if (_pieceSelector && !_selectedPiece.piecePresent && clickedOnTheBoard)
 	{
 		_selectedPiece = checkTileForPiece((*_chess), (*_chess)._tilesAndTime.newTile);
+		if (_selectedPiece.piecePresent)
+			_availableTiles = moveChecker(_myTurn - 1, _selectedPiece.pieceTypeNTeam, (*_chess)._tilesAndTime.newTile, (*_chess));
+
 		(*_chess)._tilesAndTime.oldTile = (*_chess)._tilesAndTime.newTile;
 		(*_chess)._move._pieceTypeNTeam = _selectedPiece.pieceTypeNTeam;
 		_pieceSelector = false;
 	}
-
-	//if (IsFocused())
-	//{
-	//	if (GetMouse(0).bPressed)
-	//	{
-	//		pieceSelector = true;
-	//		mouseSelectX = GetMouseX(); // Initialize mouseX
-	//		mouseSelectY = GetMouseY(); // Initialize mouseY
-	//		std::cout << "(" << mouseSelectX << ", " << mouseSelectY << ")" << std::endl;
-	//	}
-	//}
-	//olc::Pixel triCol = olc::RED;
-	//for (auto& t : topBoardTrangles) 
-	//{
-	//	if (pieceSelector)
-	//	{
-	//		if (isInsideTriangle({ (int)t.p[0].x, (int)t.p[0].y }, { (int)t.p[1].x, (int)t.p[1].y }, { (int)t.p[2].x, (int)t.p[2].y }, { mouseSelectX, mouseSelectY }))
-	//		{
-	//			//std::cout << ".";
-	//			triCol = olc::YELLOW;
-	//		}
-	//		else
-	//			triCol = olc::RED;
-	//	}
-	//	//FillTriangle(boardHalf1.p[0].x, boardHalf1.p[0].y, boardHalf1.p[1].x, boardHalf1.p[1].y, boardHalf1.p[2].x, boardHalf1.p[2].y, boardHalf1.color);
-	//	DrawTriangle(t.p[0].x, t.p[0].y, t.p[1].x, t.p[1].y, t.p[2].x, t.p[2].y, triCol);
-	//	//if(mouseSelectX)
-	//}	
-
 
 	return true;
 }
@@ -1131,7 +1038,6 @@ TileData pieceTileCheck(Piece& p, int tile)
 template<typename pieceOrBoard>
 void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/)
 {
-	//float arr[3] = { deltaX, deltaY, deltaZ };
 	for (int i = 0; i < p._triCount; i++)
 	{
 		p._tris[i] += arr;
@@ -1166,31 +1072,9 @@ bool movePiece(Piece& p, const TileNTime& tilesAndTime, AttemptedMove& attempted
 
 		// Adjust the movement to lock into the right position
 		float moveX = -shiftSpeedx * tilesAndTime.elapsedTime;
-		/*if (moveX < 0.0f)
-			moveX = -moveX;
-		attemptedMove._xDist -= moveX;
-		if (attemptedMove._xDist < 0.0f)
-		{
-			if (-shiftSpeedx > 0.0f)
-				moveX = -attemptedMove._xDist;
-			else
-				moveX = attemptedMove._xDist;
-			attemptedMove._xDist = 0.0f;
-		}*/
 
 		// Adjust the movement to lock into the right position
 		float moveY = shiftSpeedy * tilesAndTime.elapsedTime;
-		/*if (moveY < 0.0f)
-			moveY = -moveY;
-		attemptedMove._yDist -= moveY;
-		if (attemptedMove._yDist < 0.0f)
-		{
-			if (shiftSpeedy > 0.0f)
-				moveY = -attemptedMove._yDist;
-			else
-				moveY = attemptedMove._yDist;
-			attemptedMove._yDist = 0.0f;
-		}*/
 
 		for (int i = 0; i < p._triCount; i++)
 			for (int k = 0; k < 3; k++)
@@ -1240,40 +1124,6 @@ bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime&
 			return false;
 		else
 			return movePiece(p._pieces[piece], tilesAndTime, attemptedMove);
-		/* piece moving rules here
-
-		int pieceType = p._pieces[piece].PieceTypeNTeam;
-		if(pieceType > 6)
-			pieceType - 6;
-		if (pieceType < 0)
-		{
-			std::cout << "Error with pieceInQuestion function" << std::endl;
-			return false;
-		}
-		else
-			switch (pieceType)
-			{
-			case 1:
-				return movePiece(p._pieces[piece], tilesAndTime);
-				break;
-			case 2:
-				return movePiece(p._pieces[piece], tilesAndTime);
-				break;
-			case 3:
-				return movePiece(p._pieces[piece], tilesAndTime);
-				break;
-			case 4:
-				return movePiece(p._king, tilesAndTime);
-				break;
-			case 5:
-				return movePiece(p._queen, tilesAndTime);
-				break;
-			case 6:
-				return movePiece(p._bishops[1], tilesAndTime);
-				break;
-			default:
-				break;
-			}*/
 		};
 	if (playerPieces(game._pOne, tilesAndTime, attemptedMove))
 		return true;
@@ -1373,4 +1223,299 @@ vector<triangle> trangleLoader(const GameBoard& gameBoard)
 	tranglePlayerSubLoader(gameBoard._pOne, trangles);
 	tranglePlayerSubLoader(gameBoard._pTwo, trangles);
 	return trangles;
+}
+
+vector<tileAvailability> moveChecker(const int team, const int pieceType, const int currentTileValue, const GameBoard& board)
+{
+	// Checks if the given x or y are out of bounds
+	auto boundsChecker = [](const int x, const int y)
+	{
+		if (x < 0)
+		{
+			std::cout << "out of x(0) bounds" << std::endl;
+			return true;
+		}
+		if (x > 7)
+		{
+			std::cout << "out of x(7) bounds" << std::endl;
+			return true;
+		}
+		if (y < 0)
+		{
+			std::cout << "out of y(0) bounds" << std::endl;
+			return true;
+		}
+		if (y > 7)
+		{
+			std::cout << "out of y(7) bounds" << std::endl;
+			return true;
+		}
+
+		return false;
+	};
+
+	auto tileAccumulator = [boundsChecker](const GameBoard& board, const int team, vector<tileAvailability>& availableTiles, const int x, const int y)
+	{
+		if (boundsChecker(x, y))
+			return false;
+		if (board._boardTiles[x][y].piecePresent)
+		{
+			if (board._boardTiles[x][y].pieceTypeNTeam / 7 != team)
+				availableTiles.push_back({ true, x * 8 + y });
+			return false;
+		}
+		else
+		{
+			availableTiles.push_back({ false, x * 8 + y });
+		}
+		return true;
+	};
+
+
+	vector<tileAvailability> availableTiles;
+
+	int currentTileX = currentTileValue / 8;
+	int currentTileY = currentTileValue % 8;
+
+	switch ((pieceType - 1) % 6 + 1)
+	{
+	case 1: // Pawns
+		// can only move to 3 tiles or 4 at start
+		if (currentTileY == 6 - 5 * team) // Pawns can move two spaces on their first move
+		{
+			if (!board._boardTiles[currentTileX][currentTileY - 2 + 4 * team].piecePresent)
+				availableTiles.push_back({ false, currentTileValue - 2 + 4 * team });
+		}
+		for (int x = currentTileX - 1; x < currentTileX + 2; x++)
+		{
+			// Bounds checking
+			if (boundsChecker(x, currentTileY - 1 + 2 * team))
+				continue;
+
+			if (x != currentTileX && board._boardTiles[x][currentTileY - 1 + 2 * team].piecePresent)
+			{
+				if (board._boardTiles[x][currentTileY - 1 + 2 * team].pieceTypeNTeam / 7 != team)
+					availableTiles.push_back({ true, x * 8 + currentTileY - 1 + 2 * team });
+			}
+			else if (x == currentTileX && !board._boardTiles[x][currentTileY - 1 + 2 * team].piecePresent)
+			{
+				availableTiles.push_back({ false, x * 8 + currentTileY - 1 + 2 * team });
+			}
+		}
+		break;
+	case 2: // Rooks
+	{
+		// Direction bools -> false if path blocked
+		bool bUp = true;
+		bool bDown = true;
+		bool bLeft = true;
+		bool bRight = true;
+
+		int iUp = 1;
+		int iDown = -1;
+		int iLeft = -1;
+		int iRight = 1;
+
+		while (bUp || bDown || bLeft || bRight)
+		{
+			if (bUp)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX, currentTileY + iUp))
+					iUp++;
+				else
+					bUp = false;
+			}
+			if (bDown)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX, currentTileY + iDown))
+					iDown--;
+				else
+					bDown = false;
+			}
+			if (bLeft)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iLeft, currentTileY))
+					iLeft--;
+				else
+					bLeft = false;
+			}
+			if (bRight)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iRight, currentTileY))
+					iRight++;
+				else
+					bRight = false;
+			}
+		}
+	}
+		break;
+	case 3: // Knights
+	{
+		struct intXY
+		{
+			int _x = 0;
+			int _y = 0;
+		};
+		vector <intXY> knightTileOffsets = { {-1 , -2}, {1 , -2}, {-1 , 2}, {1 , 2}, {-2 , -1}, {2 , -1}, {-2 , 1}, {2 , 1}, };
+		for (int i = 0; i < 8; i++)
+		{
+			tileAccumulator(board, team, availableTiles, currentTileX + knightTileOffsets[i]._x, currentTileY + knightTileOffsets[i]._y);
+		}
+	}
+		break;
+	case 4: // Bishops
+	{
+		// Direction bools -> false if path blocked
+		bool bUpLeft = true;
+		bool bUpRight = true;
+		bool bDownLeft = true;
+		bool bDownRight = true;
+
+		int iUpLeft = 1;
+		int iUpRight = 1;
+		int iDownLeft = -1;
+		int iDownRight = -1;
+
+		while (bUpLeft || bUpRight || bDownLeft || bDownRight)
+		{
+			if (bUpLeft)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iUpLeft, currentTileY + iUpLeft))
+					iUpLeft++;
+				else
+					bUpLeft = false;
+			}
+			if (bUpRight)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX - iUpRight, currentTileY + iUpRight))
+					iUpRight++;
+				else
+					bUpRight = false;
+			}
+			if (bDownLeft)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iDownLeft, currentTileY + iDownLeft))
+					iDownLeft--;
+				else
+					bDownLeft = false;
+			}
+			if (bDownRight)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX - iDownRight, currentTileY + iDownRight))
+					iDownRight--;
+				else
+					bDownRight = false;
+			}
+		}
+	}
+		break;
+	case 5: // Kings
+		for (int x = currentTileX - 1; x < currentTileX + 2; x++)
+			for (int y = currentTileY - 1; y < currentTileY + 2; y++)
+			{
+				tileAccumulator(board, team, availableTiles, x, y);
+			}
+		break;
+	case 6: // Queens
+	{
+		// Rook-like movement
+		// Direction bools -> false if path blocked
+		bool bUp = true;
+		bool bDown = true;
+		bool bLeft = true;
+		bool bRight = true;
+
+		int iUp = 1;
+		int iDown = -1;
+		int iLeft = -1;
+		int iRight = 1;
+
+		while (bUp || bDown || bLeft || bRight)
+		{
+			if (bUp)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX, currentTileY + iUp))
+					iUp++;
+				else
+					bUp = false;
+			}
+			if (bDown)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX, currentTileY + iDown))
+					iDown--;
+				else
+					bDown = false;
+			}
+			if (bLeft)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iLeft, currentTileY))
+					iLeft--;
+				else
+					bLeft = false;
+			}
+			if (bRight)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iRight, currentTileY))
+					iRight++;
+				else
+					bRight = false;
+			}
+		}
+
+		// Bishop-like movement
+		// Direction bools -> false if path blocked
+		bool bUpLeft = true;
+		bool bUpRight = true;
+		bool bDownLeft = true;
+		bool bDownRight = true;
+
+		int iUpLeft = 1;
+		int iUpRight = 1;
+		int iDownLeft = -1;
+		int iDownRight = -1;
+
+		while (bUpLeft || bUpRight || bDownLeft || bDownRight)
+		{
+			if (bUpLeft)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iUpLeft, currentTileY + iUpLeft))
+					iUpLeft++;
+				else
+					bUpLeft = false;
+			}
+			if (bUpRight)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX - iUpRight, currentTileY + iUpRight))
+					iUpRight++;
+				else
+					bUpRight = false;
+			}
+			if (bDownLeft)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX + iDownLeft, currentTileY + iDownLeft))
+					iDownLeft--;
+				else
+					bDownLeft = false;
+			}
+			if (bDownRight)
+			{
+				if (tileAccumulator(board, team, availableTiles, currentTileX - iDownRight, currentTileY + iDownRight))
+					iDownRight--;
+				else
+					bDownRight = false;
+			}
+		}
+	}
+		break;
+	default:
+		break;
+	}
+
+	availableTiles.push_back({ false, -1 }); // Add an invalid tile for later find_if searching
+	for (auto& i : availableTiles)
+	{
+		std::cout << i._tile << " ";
+	}
+	std::cout << std::endl;
+	return availableTiles;
 }

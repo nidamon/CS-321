@@ -75,7 +75,6 @@ int main()
     mappedViewChess[0]._pieceInMotion = false;
     mappedViewChess[0]._move._pieceTypeNTeam = 0;
 
-    int currentTurn = -1; // -1 is server's turn
     int tileMovingTo = -1;
     TileData newTileInfo = { false, 0 }; // 0 is invalid type and team
     int turnHold = 2; // Player1 just went first so player 2 goes next - - >  1 = player 1, 2 = player 2
@@ -83,11 +82,6 @@ int main()
     bool run = true;
 
     bool gotTileDestination = false;
-    // Use chrono to time movements
-    //bool chronoStart = true;
-    //steady_clock::time_point timeStart;
-    //std::chrono::duration<float> timeSinceStart;
-    //std::chrono::duration<float> timeElapsed;
 
     mappedViewChess[0]._tilesAndTime.elapsedTime = 0.05f;
     float squareDimension = 9.9675f;
@@ -98,41 +92,8 @@ int main()
             run = false;
         if (mappedViewChess[0]._turn == 0)
         {
-            //if (chronoStart)
-            //{
-            //    // Get exact movement distances
-            //    mappedViewChess[0]._move._xDist = squareDimension * float((int)mappedViewChess[0]._tilesAndTime.oldTile % 8 - (int)mappedViewChess[0]._tilesAndTime.newTile % 8);
-            //    mappedViewChess[0]._move._yDist = squareDimension * float((int)mappedViewChess[0]._tilesAndTime.oldTile / 8 - (int)mappedViewChess[0]._tilesAndTime.newTile / 8);
-            //    cout << mappedViewChess[0]._move._xDist << ", " << mappedViewChess[0]._move._yDist << endl;
-            //    if (mappedViewChess[0]._move._yDist < 0.0f)
-            //        mappedViewChess[0]._move._yDist = -mappedViewChess[0]._move._yDist;
-            //    if (mappedViewChess[0]._move._xDist < 0.0f)
-            //        mappedViewChess[0]._move._xDist = -mappedViewChess[0]._move._xDist;
-            //    cout << mappedViewChess[0]._move._xDist << ", " << mappedViewChess[0]._move._yDist << endl;
-
-
-            //    timeStart = steady_clock::now();
-            //    timeSinceStart.zero(); // Reset clock
-            //    //cout << timeSinceStart.count() << endl; // check the clock reset REMOVE THIS
-            //    chronoStart = false;
-            //}
-            //if (!chronoStart)
-            //{
-            //    timeElapsed.zero();
-            //    steady_clock::time_point checkTime = steady_clock::now();
-            //    timeElapsed = std::chrono::duration_cast<std::chrono::duration<float>>(checkTime - timeStart);
-            //    timeStart = steady_clock::now();
-            //    //timeSinceStart += timeElapsed; // Increment the time since beginning the action
-
-            //    // Change the time varibles in tilesAndTime
-            //    mappedViewChess[0]._tilesAndTime.elapsedTime = 0.05f;//timeElapsed.count();
-            //    mappedViewChess[0]._tilesAndTime.timeSince += 0.05f;//timeElapsed.count();//timeSinceStart.count()*1000;
-            //    //cout << timeElapsed.count() << endl;
-            //}
-            //if (timeElapsed.count() != 0)
-            //{
                 mappedViewChess[0]._tilesAndTime.timeSince += 0.05f;
-                if (!gotTileDestination/*mappedViewChess[0]._tilesAndTime.newTile != tileMovingTo*/)
+                if (!gotTileDestination)
                 {
                     newTileInfo = checkTileForPiece(mappedViewChess[0], mappedViewChess[0]._tilesAndTime.newTile);
                     tileMovingTo = mappedViewChess[0]._tilesAndTime.newTile;
@@ -177,19 +138,26 @@ int main()
                         mappedViewChess[0]._pieceInMotion = getPieceAndMoveIt(mappedViewChess[0], mappedViewChess[0]._tilesAndTime, mappedViewChess[0]._move);
                         if (!mappedViewChess[0]._pieceInMotion)
                         {
+                            // Set the old tile in the boardTiles to be empty
+                            int oldTile = mappedViewChess[0]._tilesAndTime.oldTile; 
+                            mappedViewChess[0]._boardTiles[oldTile / 8][oldTile % 8] = { false, 0 };
+
+                            // Set the new tile in the boardTiles to the new value
+                            int newTile = mappedViewChess[0]._tilesAndTime.newTile;
+                            int pTypeNTeam = mappedViewChess[0]._move._pieceTypeNTeam;
+                            mappedViewChess[0]._boardTiles[newTile / 8][newTile % 8] = { true, pTypeNTeam };
+
                             mappedViewChess[0]._tilesAndTime.timeSince = 0.0f;
                             if (turnHold == 1)
                             {
-                                turnHold = 1; //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                                turnHold = 2; 
                                 mappedViewChess[0]._turn = 1; // Give turn to player 1
                             }
                             else //(turnHold == 2)
                             {
                                 turnHold = 1;
-                                mappedViewChess[0]._turn = 1; // Give turn to player 2
+                                mappedViewChess[0]._turn = 2; // Give turn to player 2
                             }
-                            /*cout << "time = " << timeSinceStart.count() << endl;
-                            chronoStart = true;*/
                             gotTileDestination = false;
                         }
                     }
@@ -198,7 +166,6 @@ int main()
                 {
                     mappedViewChess[0]._turn = turnHold;
                 }
-                //mappedViewChess[0]._tilesAndTime.elapsedTime = 0.0f; // Set to zero to prevent crazy speed objects
         }
     }
 
@@ -210,7 +177,5 @@ int main()
     }
     cout << "UnMapViewOfFile Success" << endl;
 
-    int stop = 0;
-    std::cin >> stop;
     return 0;
 }

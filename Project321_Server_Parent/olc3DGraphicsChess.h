@@ -94,7 +94,6 @@ struct Object
 public:
 	Object() : _xPos(0.0f), _yPos(0.0f), _zPos(0.0f) {};
 	Object(float posX, float posY, float posZ, int triangleCount) : _xPos(posX), _yPos(posY), _zPos(posZ), _triCount(triangleCount) {};
-	//int _decals = 0; // Specified as bits
 
 	// Unified postion --> used to change the overall position
 	float _xPos = 0.0f;
@@ -104,7 +103,6 @@ public:
 	int _triCount = 0;
 };
 
-// REMOVE ALL DERIVED PIECES
 struct Piece : public Object
 {
 	using Object::Object;
@@ -114,42 +112,6 @@ struct Piece : public Object
 	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 16 for player 2 equivalent
 	int PieceTypeNTeam = 1; 
 };
-//
-//struct Pawn : public Piece
-//{
-//	using Piece::Piece;
-//	triangle _tris[12];
-//};
-//
-//struct Bishop : public Piece
-//{
-//	using Piece::Piece;
-//	triangle _tris[6];
-//};
-//
-//struct Knight : public Piece
-//{
-//	using Piece::Piece;
-//	triangle _tris[24];
-//};
-//
-//struct Rook : public Piece
-//{
-//	using Piece::Piece;
-//	triangle _tris[12];
-//};
-//
-//struct Queen : public Piece
-//{
-//	using Piece::Piece;
-//	triangle _tris[12];
-//};
-//
-//struct King : public Piece
-//{
-//	using Piece::Piece;
-//	triangle _tris[18];
-//};
 
 struct Player
 {
@@ -216,55 +178,10 @@ struct Player
 				break;
 			}
 		}
-		/*for (int i = 0; i < 8; i++)
-		{
-			Pawn pawn(0.0f + offsetXY + squareDimension * (float)i, 0.0f + offsetXY + squareDimension + (team * squareDimension * 5.0f), boardTop, 12);
-			_pawns[i] = pawn;
-			_pawns[i]._position = (6 - 5*team) + 8 * i; // If player one (team 0) set pawns at x = 6 else at 1
-		}
-
-		Rook rook1(0.0f + offsetXY, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 12);
-		_rooks[0] = rook1;
-		_rooks[0]._position = (7 - 7 * team);
-
-		Knight knight1(0.0f + offsetXY - squareDimension * 0.5f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 24);
-		_knights[0] = knight1;
-		_knights[0]._position = (15 - 7 * team);
-
-		Bishop bishop1(0.0f + offsetXY + squareDimension * 2.0f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 6);
-		_bishops[0] = bishop1;
-		_bishops[0]._position = (23 - 7 * team);
-
-		King king(0.0f + offsetXY + squareDimension * 3.0f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 18);
-		_king = king;
-		_king._position = (31 - 7 * team);
-
-		Queen queen(0.0f + offsetXY + squareDimension * 4.0f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 12);
-		_queen = queen;
-		_queen._position = (39 - 7 * team);
-
-		Bishop bishop2(0.0f + offsetXY + squareDimension * 5.0f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 6);
-		_bishops[1] = bishop2;
-		_bishops[1]._position = (47 - 7 * team);
-
-		Knight knight2(0.0f + offsetXY + squareDimension * 4.5f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 24);
-		_knights[1] = knight2;
-		_knights[1]._position = (55 - 7 * team);
-
-		Rook rook2(0.0f + offsetXY + squareDimension * 7.0f, 0.0f + offsetXY + (team * squareDimension * 7.0f), boardTop, 12);
-		_rooks[1] = rook2;
-		_rooks[1]._position = (63 - 7 * team);*/
 	}
 
 	int _team = 0;
 	Piece _pieces[16];
-
-	/*Pawn _pawns[8];
-	Bishop _bishops[2];
-	Knight _knights[2];
-	Rook _rooks[2];
-	Queen _queen;
-	King _king;*/
 };
 
 struct AttemptedMove
@@ -278,8 +195,7 @@ struct TileData
 {
 	bool piecePresent = false;
 	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 16 for player 2 equivalent
-	int pieceTypeNTeam = 0; // 1-8 for pawn, 9/16 for rook, 10/15 for knight, 11/14 for bishop, 12 for king, 13 for queen and add 16 for player 2 equivalent
-	//Piece* peicePtr = nullptr;
+	int pieceTypeNTeam = 0;
 };
 
 struct TileNTime
@@ -288,6 +204,12 @@ struct TileNTime
 	float oldTile;
 	float timeSince;
 	float elapsedTime;
+};
+
+struct tileAvailability
+{
+	bool _enemyPiecePresent;
+	int _tile;
 };
 
 struct GameBoard : public Object
@@ -302,6 +224,19 @@ struct GameBoard : public Object
 		_yPos = 0.0f;
 		_zPos = -3.82f;
 		_triCount = 12;
+
+		for (int x = 0; x < 8; x++)
+			for (int y = 2; y < 6; y++)
+			{
+				_boardTiles[x][y] = { false, 0 };
+			}
+
+		for (int i = 0; i < 16; i++)
+		{
+			_boardTiles[_pOne._pieces[i]._position / 8][_pOne._pieces[i]._position % 8] = { true, _pOne._pieces[i].PieceTypeNTeam };
+			_boardTiles[_pTwo._pieces[i]._position / 8][_pTwo._pieces[i]._position % 8] = { true, _pTwo._pieces[i].PieceTypeNTeam };
+		}
+
 	};
 	int _turn = 0;
 	AttemptedMove _move = { 0 }; // EDIT
@@ -310,6 +245,7 @@ struct GameBoard : public Object
 	triangle _tris[12];
 	Player _pOne;
 	Player _pTwo;
+	TileData _boardTiles[8][8];
 };
 
 
@@ -346,6 +282,8 @@ void trangleSubLoader(const pieceOrBoard& obj, vector<triangle>& trangles);
 void tranglePlayerSubLoader(const Player& p, vector<triangle>& trangles);
 
 vector<triangle> trangleLoader(const GameBoard& gameBoard);
+
+vector<tileAvailability> moveChecker(const int turn, const int pieceType, const int currentTileValue, const GameBoard& board);
 
 
 struct mesh
@@ -393,9 +331,6 @@ struct mesh
 					}
 					vec2D v;
 					s >> junk >> junk >> v.u >> v.v;
-					// A little hack for the spyro texture
-					//v.u = 1.0f - v.u;
-					//v.v = 1.0f - v.v;
 					v.u = (v.u) * imageWidth;
 					v.v = (1.0f - v.v) * imageHeight;
 					texs.push_back(v);
@@ -664,6 +599,7 @@ private:
 	int _mouseSelectY = 0;
 	int _myTurn;
 	TileData _selectedPiece = { false, 0 };
+	vector<tileAvailability> _availableTiles;
 
 	/*float colorTimer = 0.0f;
 	float colorChangeMultiplier = 100.0f;
