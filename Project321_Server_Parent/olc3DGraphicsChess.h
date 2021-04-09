@@ -108,8 +108,8 @@ struct Piece : public Object
 	using Object::Object;
 	short _position = 0; // 0 -> 63 for board, doubles as a unique ID for the piece
 	bool _selected = false;
-	triangle _tris[24];
-	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 16 for player 2 equivalent
+	triangle _tris[23];
+	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 6 for player 2 equivalent
 	int PieceTypeNTeam = 1; 
 };
 
@@ -124,16 +124,16 @@ struct Player
 		// Pieces
 		for (int i = 0; i < 8; i++)
 		{
-			Piece pawn(0.0f + offsetXY + squareDimension * (float)i, 0.0f + offsetXY + squareDimension + (team * squareDimension * 5.0f), boardTop, 12);
+			Piece pawn(0.0f + squareDimension * (float)i, 0.0f + squareDimension + (team * squareDimension * 5.0f), boardTop, 12);
 			_pieces[i] = pawn;
 			_pieces[i].PieceTypeNTeam = 1 + 6 * team;
 			_pieces[i]._position = (6 - 5 * team) + 8 * i; // If player one (team 0) set pawns at x = 6 else at 1
 		}
-		float secondRowOffset = 0.0f + offsetXY + (team * squareDimension * 7.0f);
+		float secondRowOffset = 0.0f + (team * squareDimension * 7.0f);
 		for (int j = 0; j < 8; j++)
 		{
 			int i = j + 8;
-			float columnOffset = 0.0f + offsetXY + squareDimension * float(j);
+			float columnOffset = 0.0f + squareDimension * float(j);
 			Piece piece(columnOffset, secondRowOffset, boardTop, 0);
 			_pieces[i] = piece;
 			_pieces[i]._position = (7 + 8 * j - 7 * team); // Set the piece's position
@@ -145,9 +145,8 @@ struct Player
 				_pieces[i]._triCount = 12;
 				break;
 			case 1: // Knight
-				_pieces[i]._xPos = 0.0f + offsetXY - squareDimension * 0.5f; // Need extra adjustment for the knights
 				_pieces[i].PieceTypeNTeam = 3 + 6 * team;
-				_pieces[i]._triCount = 24;
+				_pieces[i]._triCount = 23;
 				break;
 			case 2: // Bishop
 				_pieces[i].PieceTypeNTeam = 4 + 6 * team;
@@ -155,7 +154,7 @@ struct Player
 				break;
 			case 3: // King
 				_pieces[i].PieceTypeNTeam = 5 + 6 * team;
-				_pieces[i]._triCount = 18;
+				_pieces[i]._triCount = 16;
 				break;
 			case 4: // Queen
 				_pieces[i].PieceTypeNTeam = 6 + 6 * team;
@@ -166,9 +165,8 @@ struct Player
 				_pieces[i]._triCount = 6;
 				break;
 			case 6: // Knight
-				_pieces[i]._xPos = 0.0f + offsetXY + squareDimension * 4.5f; // Need extra adjustment for the knights
 				_pieces[i].PieceTypeNTeam = 3 + 6 * team;
-				_pieces[i]._triCount = 24;
+				_pieces[i]._triCount = 23;
 				break;
 			case 7: // Rook
 				_pieces[i].PieceTypeNTeam = 2 + 6 * team;
@@ -194,7 +192,7 @@ struct AttemptedMove
 struct TileData
 {
 	bool piecePresent = false;
-	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 16 for player 2 equivalent
+	// 1 for pawn, 2 for rook, 3 for knight, 4 for bishop, 5 for king, 6 for queen and add 6 for player 2 equivalent
 	int pieceTypeNTeam = 0;
 };
 
@@ -215,13 +213,11 @@ struct tileAvailability
 struct GameBoard : public Object
 {
 	GameBoard(float offsetXY = 0.98375f, float squareDimension = 9.9675f, float boardTop = 0.0f) :
-		//_board(39.872337f, 39.872337f, -3.82f, 12),
-
 		_pOne(offsetXY, squareDimension, boardTop, 0),
 		_pTwo(offsetXY, squareDimension, boardTop, 1)
 	{
-		_xPos = 0.0f;
-		_yPos = 0.0f;
+		_xPos = 3.5f * squareDimension;
+		_yPos = 3.5f * squareDimension;
 		_zPos = -3.82f;
 		_triCount = 12;
 
@@ -581,13 +577,9 @@ private:
 	float worldRotationY = 0.0f;
 	float worldRotationZ = 0.0f;
 
-	//float fYaw;
-	//float fTheta = 0.0f;
-
 	olc::Decal* decaltex;
 	olc::Decal* decaltexWH;
 	olc::Decal* decaltexGR;
-	//olc::Decal* decaltexPM;
 	olc::Decal* decaltexBR;
 	olc::Decal* decaltexBoard;
 
@@ -600,12 +592,6 @@ private:
 	int _myTurn;
 	TileData _selectedPiece = { false, 0 };
 	vector<tileAvailability> _availableTiles;
-
-	/*float colorTimer = 0.0f;
-	float colorChangeMultiplier = 100.0f;
-	float colorOfTime1 = 0.0f;
-	float colorOfTime2 = 0.0f;
-	float colorOfTime3 = 0.0f;*/
 
 	void TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
 		int x2, int y2, float u2, float v2, float w2,

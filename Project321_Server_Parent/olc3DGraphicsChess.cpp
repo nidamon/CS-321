@@ -35,7 +35,7 @@ bool olc3DGraphics::OnUserCreate()
 		vertexCorrection((*_chess));
 		subColorChange((*_chess), { 106, 181, 0, 0 });
 
-		// Player one's pieces
+		// All pieces
 		for (int i = 0; i < 16; i++)
 		{
 			// Player one's pieces
@@ -67,8 +67,6 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 {
 	// Handle Input
 	vec3D vForward = Vector_Mul(vLookDir, fCameraSpeed * fElapsedTime);
-
-	//float squareDimension = 9.9675f;
 
 	if (IsFocused())
 	{
@@ -393,7 +391,6 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 				if (t.color.a == 208) // If top of chess board
 				{
 					bool selectedtri = false;
-					//topBoardTrangles.push_back(t);
 					if (_pieceSelector)
 						if (isInsideTriangle({ (int)t.p[0].x, (int)t.p[0].y }, { (int)t.p[1].x, (int)t.p[1].y }, { (int)t.p[2].x, (int)t.p[2].y }, { _mouseSelectX, _mouseSelectY }))
 						{
@@ -408,7 +405,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 
 					if (selectedtri)
 					{
-						std::cout << "Tile Selected: " << (*_chess)._tilesAndTime.newTile /*_tileSelected*/ << std::endl;
+						std::cout << "Tile Selected: " << (*_chess)._tilesAndTime.newTile << std::endl;
 						clickedOnTheBoard = true;
 						selectedtri = false;
 					}
@@ -450,6 +447,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 	if (_pieceSelector && !_selectedPiece.piecePresent && clickedOnTheBoard)
 	{
 		_selectedPiece = checkTileForPiece((*_chess), (*_chess)._tilesAndTime.newTile);
+		
 		if (_selectedPiece.piecePresent)
 			_availableTiles = moveChecker(_myTurn - 1, _selectedPiece.pieceTypeNTeam, (*_chess)._tilesAndTime.newTile, (*_chess));
 
@@ -996,7 +994,7 @@ TileData checkTileForPiece(GameBoard& game, int tileToCheck)
 	// Checks if a player's piece is on the given tile
 	auto playerCheck = [](Player& p, int tile) {
 		TileData t;
-		for (int i = 0; i < 16; i++) // Pawns
+		for (int i = 0; i < 16; i++) // Loop over both teams pieces
 		{
 			t = pieceTileCheck(p._pieces[i], tile);
 			if (t.piecePresent)
@@ -1036,7 +1034,7 @@ TileData pieceTileCheck(Piece& p, int tile)
 
 // Moves the piece a given distance
 template<typename pieceOrBoard>
-void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/)
+void objectMov(pieceOrBoard& p, const float arr[3])
 {
 	for (int i = 0; i < p._triCount; i++)
 	{
@@ -1051,7 +1049,7 @@ bool movePiece(Piece& p, const TileNTime& tilesAndTime, AttemptedMove& attempted
 	float tShift = 1.5f + tRise;
 	float tLower = tRise + tShift + 0.1; // Some small amount of additional time to correct with the board
 
-	float zSpeed = 2.0f; // change to height rise to
+	float zSpeed = 10.0f; // change to height rise to
 
 	// Raise the piece
 	if (tilesAndTime.timeSince < tRise)
@@ -1110,9 +1108,9 @@ bool movePiece(Piece& p, const TileNTime& tilesAndTime, AttemptedMove& attempted
 }
 
 // Gets the piece specified by pieceTypeNTeam
-bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove)
+bool getPieceAndMoveIt(GameBoard& game, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove)
 {
-	auto playerPieces = [](Player& p,/* int pieceType,*/ const TileNTime& tilesAndTime, AttemptedMove& attemptedMove) {
+	auto playerPieces = [](Player& p, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove) {
 
 		int piece = -1;
 		for (int i = 0; i < 16; i++)
@@ -1131,51 +1129,6 @@ bool getPieceAndMoveIt(GameBoard& game/*, int pieceTypeNTeam*/, const TileNTime&
 		return true;
 	else
 		return false;
-	//auto playerPieces = [](Player& p, int pieceType, const TileNTime& tilesAndTime) {
-	//	if (pieceType < 0)
-	//	{
-	//		std::cout << "Error with pieceInQuestion function" << std::endl;
-	//		return false;
-	//	}
-	//	if (pieceType < 9)
-	//		return movePiece(p._pawns[pieceType - 1], tilesAndTime);
-	//	else
-	//		switch (pieceType)
-	//		{
-	//		case 9:
-	//			return movePiece(p._rooks[0], tilesAndTime);
-	//			break;
-	//		case 10:
-	//			return movePiece(p._knights[0], tilesAndTime);
-	//			break;
-	//		case 11:
-	//			return movePiece(p._bishops[0], tilesAndTime);
-	//			break;
-	//		case 12:
-	//			return movePiece(p._king, tilesAndTime);
-	//			break;
-	//		case 13:
-	//			return movePiece(p._queen, tilesAndTime);
-	//			break;
-	//		case 14:
-	//			return movePiece(p._bishops[1], tilesAndTime);
-	//			break;
-	//		case 15:
-	//			return movePiece(p._knights[1], tilesAndTime);
-	//			break;
-	//		case 16:
-	//			return movePiece(p._rooks[1], tilesAndTime);
-	//			break;
-	//		default:
-	//			break;
-	//		}
-	//};
-	//if (pieceTypeNTeam > 0 && pieceTypeNTeam < 17)
-	//	return playerPieces(game._pOne, pieceTypeNTeam, tilesAndTime);
-	//else if (pieceTypeNTeam > 16 && pieceTypeNTeam < 33)
-	//	return playerPieces(game._pTwo, pieceTypeNTeam - 16, tilesAndTime);
-	//else
-	//	return false;
 };
 
 // Sets objects to 0 0 0
@@ -1185,6 +1138,8 @@ void vertexCorrection(pieceOrBoard& obj)
 	float x = obj._tris[0].p[0].x;
 	float y = obj._tris[0].p[0].y;
 	float z = obj._tris[0].p[0].z;
+	float greatestX = -1000.0f; // Nothing should be that far away (at -1000, -1000)
+	float greatestY = -1000.0f;
 	for (int i = 0; i < obj._triCount; i++)
 	{
 		// Find lowest x, y, and z
@@ -1196,10 +1151,20 @@ void vertexCorrection(pieceOrBoard& obj)
 				y = obj._tris[i].p[k].y;
 			if (obj._tris[i].p[k].z < z)
 				z = obj._tris[i].p[k].z;
+
+			// Get the greatest x and y values
+			if (obj._tris[i].p[k].x > greatestX)
+				greatestX = obj._tris[i].p[k].x;
+			if (obj._tris[i].p[k].y > greatestY)
+				greatestY = obj._tris[i].p[k].y;
 		}
 	}
+
+	float offsetX = 9.9675f / 2.0f - (greatestX - x) / 2.0f;
+	float offsetY = 9.9675f / 2.0f - (greatestY - y) / 2.0f;
+
 	// Set the position to 0 0 0 
-	float arr[3] = { -x + obj._xPos, -y + obj._yPos, -z + obj._zPos };
+	float arr[3] = { -x + offsetX + obj._xPos, -y + offsetY + obj._yPos, -z + obj._zPos };
 	objectMov(obj, arr);
 }
 
@@ -1276,6 +1241,10 @@ vector<tileAvailability> moveChecker(const int team, const int pieceType, const 
 
 	int currentTileX = currentTileValue / 8;
 	int currentTileY = currentTileValue % 8;
+
+	// Check if we have selected a piece on our team. If not, break
+	if (board._boardTiles[currentTileX][currentTileY].pieceTypeNTeam / 7 != team)
+		return { { false, -1 } };
 
 	switch ((pieceType - 1) % 6 + 1)
 	{
