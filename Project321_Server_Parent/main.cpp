@@ -75,7 +75,7 @@ int main()
     mappedViewChess[0]._pieceInMotion = false;
     mappedViewChess[0]._move._pieceTypeNTeam = 0;
 
-    int tileMovingTo = -1;
+    //int tileMovingTo = -1;
     TileData newTileInfo = { false, 0 }; // 0 is invalid type and team
     int turnHold = 2; // Player1 just went first so player 2 goes next - - >  1 = player 1, 2 = player 2
 
@@ -92,80 +92,90 @@ int main()
             run = false;
         if (mappedViewChess[0]._turn == 0)
         {
-                mappedViewChess[0]._tilesAndTime.timeSince += 0.05f;
-                if (!gotTileDestination)
+            mappedViewChess[0]._tilesAndTime.timeSince += 0.05f;
+            if (!gotTileDestination)
+            {
+                newTileInfo = checkTileForPiece(mappedViewChess[0], mappedViewChess[0]._tilesAndTime.newTile);
+                //tileMovingTo = mappedViewChess[0]._tilesAndTime.newTile;
+                gotTileDestination = true;
+            }
+            if (!newTileInfo.piecePresent || mappedViewChess[0]._move._pieceTypeNTeam / 7 != newTileInfo.pieceTypeNTeam / 7) // Check for empty tile or different teams
+            {
+                if (newTileInfo.piecePresent) // Removes the piece at destination
                 {
-                    newTileInfo = checkTileForPiece(mappedViewChess[0], mappedViewChess[0]._tilesAndTime.newTile);
-                    tileMovingTo = mappedViewChess[0]._tilesAndTime.newTile;
-                    gotTileDestination = true;
-                }
-                if (!newTileInfo.piecePresent || mappedViewChess[0]._move._pieceTypeNTeam / 7 != newTileInfo.pieceTypeNTeam / 7) // Check for empty tile or different teams
-                {
-                    if (newTileInfo.piecePresent) // Removes the piece at destination
-                    {
-                        auto playerPieces = [](Player& p, const TileNTime& tilesAndTime) {
-                            float arr[3] = { 0.0f, 0.0f, -25.0f};
-                            if (tilesAndTime.newTile < 0 || tilesAndTime.newTile > 63)
+                    auto playerPieces = [](Player& p, const TileNTime& tilesAndTime) {
+                        float arr[3] = { 0.0f, 0.0f, -25.0f };
+                        if (tilesAndTime.newTile < 0 || tilesAndTime.newTile > 63)
+                        {
+                            std::cout << "Error with playerPieces lambda in Server Main" << std::endl;
+                            return;
+                        }
+                        else
+                        {
+                            for (int i = 0; i < 16; i++)
                             {
-                                std::cout << "Error with playerPieces lambda in Server Main" << std::endl;
-                                return;
-                            }
-                            else
-                            {
-                                for (int i = 0; i < 16; i++)
+                                if (p._pieces[i]._position == tilesAndTime.newTile)
                                 {
-                                    if (p._pieces[i]._position == tilesAndTime.newTile)
-                                    {
-                                        objectMov(p._pieces[i], arr);
-                                        p._pieces[i]._position = -1;
-                                        cout << "Piece has fallen." << endl;
-                                        return;
-                                    }
+                                    objectMov(p._pieces[i], arr);
+                                    p._pieces[i]._position = -1;
+                                    cout << "Piece has fallen." << endl;
+                                    return;
                                 }
                             }
-                        };
-                        // Makes the piece disappear (moves it below the board) as the new piece is about to decend on its former tile
-                        if (mappedViewChess[0]._tilesAndTime.timeSince > 3.0f)
-                        {
-                            if (newTileInfo.pieceTypeNTeam > 0 && newTileInfo.pieceTypeNTeam < 7)
-                                playerPieces(mappedViewChess[0]._pOne, mappedViewChess[0]._tilesAndTime);
-                            if (newTileInfo.pieceTypeNTeam > 6 && newTileInfo.pieceTypeNTeam < 13)
-                                playerPieces(mappedViewChess[0]._pTwo, mappedViewChess[0]._tilesAndTime);
                         }
-                    }
-                    if (mappedViewChess[0]._pieceInMotion)
+                    };
+                    // Makes the piece disappear (moves it below the board) as the new piece is about to decend on its former tile
+                    if (mappedViewChess[0]._tilesAndTime.timeSince > 3.0f)
                     {
-                        mappedViewChess[0]._pieceInMotion = getPieceAndMoveIt(mappedViewChess[0], mappedViewChess[0]._tilesAndTime, mappedViewChess[0]._move);
-                        if (!mappedViewChess[0]._pieceInMotion)
-                        {
-                            // Set the old tile in the boardTiles to be empty
-                            int oldTile = mappedViewChess[0]._tilesAndTime.oldTile; 
-                            mappedViewChess[0]._boardTiles[oldTile / 8][oldTile % 8] = { false, 0 };
-
-                            // Set the new tile in the boardTiles to the new value
-                            int newTile = mappedViewChess[0]._tilesAndTime.newTile;
-                            int pTypeNTeam = mappedViewChess[0]._move._pieceTypeNTeam;
-                            mappedViewChess[0]._boardTiles[newTile / 8][newTile % 8] = { true, pTypeNTeam };
-
-                            mappedViewChess[0]._tilesAndTime.timeSince = 0.0f;
-                            if (turnHold == 1)
-                            {
-                                turnHold = 2; 
-                                mappedViewChess[0]._turn = 1; // Give turn to player 1
-                            }
-                            else //(turnHold == 2)
-                            {
-                                turnHold = 1;
-                                mappedViewChess[0]._turn = 2; // Give turn to player 2
-                            }
-                            gotTileDestination = false;
-                        }
+                        if (newTileInfo.pieceTypeNTeam > 0 && newTileInfo.pieceTypeNTeam < 7)
+                            playerPieces(mappedViewChess[0]._pOne, mappedViewChess[0]._tilesAndTime);
+                        if (newTileInfo.pieceTypeNTeam > 6 && newTileInfo.pieceTypeNTeam < 13)
+                            playerPieces(mappedViewChess[0]._pTwo, mappedViewChess[0]._tilesAndTime);
                     }
                 }
-                else
+                if (mappedViewChess[0]._pieceInMotion)
                 {
-                    mappedViewChess[0]._turn = turnHold;
+                    mappedViewChess[0]._pieceInMotion = getPieceAndMoveIt(mappedViewChess[0], mappedViewChess[0]._tilesAndTime, mappedViewChess[0]._move);
+                    if (!mappedViewChess[0]._pieceInMotion)
+                    {
+                        // Set the old tile in the boardTiles to be empty
+                        int oldTile = mappedViewChess[0]._tilesAndTime.oldTile;
+                        mappedViewChess[0]._boardTiles[oldTile / 8][oldTile % 8] = { false, 0 };
+
+                        // Set the new tile in the boardTiles to the new value
+                        int newTile = mappedViewChess[0]._tilesAndTime.newTile;
+                        int pTypeNTeam = mappedViewChess[0]._move._pieceTypeNTeam;
+                        mappedViewChess[0]._boardTiles[newTile / 8][newTile % 8] = { true, pTypeNTeam };
+
+                        mappedViewChess[0]._tilesAndTime.timeSince = 0.0f;
+
+                        if (mappedViewChess[0]._pawnPromotion.hasBeenPromoted)
+                        {
+                            cout << "Server read pawnChange" << endl;
+                            pawnChanger(mappedViewChess[0]._pawnPromotion.type, newTile, mappedViewChess[0]);
+                            mappedViewChess[0]._pawnPromotion.type = 0;
+                            mappedViewChess[0]._pawnPromotion.hasBeenPromoted = false;
+                            mappedViewChess[0]._pawnPromotion.isPromoting = false;
+                        }
+
+                        if (turnHold == 1)
+                        {
+                            turnHold = 2;
+                            mappedViewChess[0]._turn = 1; // Give turn to player 1
+                        }
+                        else //(turnHold == 2)
+                        {
+                            turnHold = 1;
+                            mappedViewChess[0]._turn = 2; // Give turn to player 2
+                        }
+                        gotTileDestination = false;
+                    }
                 }
+            }
+            else
+            {
+                mappedViewChess[0]._turn = turnHold;
+            }
         }
     }
 

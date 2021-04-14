@@ -27,13 +27,16 @@ bool olc3DGraphics::OnUserCreate()
 {
 	pDepthBuffer = new float[ScreenWidth() * ScreenHeight()];
 
-	// Called in Server/Parent
 
+	// Called in Server/Parent
 	if (_myTurn == 1)
 	{
 		meshCube.LoadFromChessBoardObjectFile((*_chess), "../Objects/Chess Board and 6 type pieces for 2 teams ReducedVTX.txt", true, 48, 48);
 		vertexCorrection((*_chess));
+		vertexCorrection((*_chess)._overlay);
+
 		subColorChange((*_chess), { 106, 181, 0, 0 });
+		subColorChange((*_chess)._overlay, { 255, 255, 25, 0 });
 
 		// All pieces
 		for (int i = 0; i < 16; i++)
@@ -43,6 +46,7 @@ bool olc3DGraphics::OnUserCreate()
 			// Player two's pieces
 			vertexCorrection((*_chess)._pTwo._pieces[i]);
 		}
+
 		// Player one's color
 		colorChange((*_chess)._pOne, { 255, 0, 0, 0 });
 
@@ -50,10 +54,14 @@ bool olc3DGraphics::OnUserCreate()
 		colorChange((*_chess)._pTwo, { 0, 255, 255, 0 });
 	}
 
-	decaltexWH = new olc::Decal(new olc::Sprite("../Objects/whmarble.jpg"));
-	decaltexGR = new olc::Decal(new olc::Sprite("../Objects/grmarble.jpg"));
-	decaltexBR = new olc::Decal(new olc::Sprite("../Objects/brmarble.jpg"));
-	decaltexBoard = new olc::Decal(new olc::Sprite("../Objects/Chess Board.png"));
+	_decaltexWH = new olc::Decal(new olc::Sprite("../Objects/whmarble.jpg"));
+	_decaltexGR = new olc::Decal(new olc::Sprite("../Objects/grmarble.jpg"));
+	_decaltexBR = new olc::Decal(new olc::Sprite("../Objects/brmarble.jpg"));
+	_decaltexBoard = new olc::Decal(new olc::Sprite("../Objects/Chess Board.png"));
+	_decaltexOverlay = new olc::Decal(new olc::Sprite("../Objects/Overlay.png"));
+	_decaltexOverlayAttack = new olc::Decal(new olc::Sprite("../Objects/OverlayAttack.png"));
+
+	_decaltexPawnChangeScreen = new olc::Decal(new olc::Sprite("../Objects/PawnChange.png"));
 
 	std::cout << "Object loaded" << std::endl;
 
@@ -208,6 +216,8 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 	vector<triangle> vecTrianglesToRaster;
 
 	vector<triangle> trangles = trangleLoader(*_chess);
+	if (_myTurn == (*_chess)._turn && _selectedPiece.piecePresent)
+		trangleSubLoaderOverlay((*_chess)._overlay, _availableTiles, trangles);
 
 	// Draw Triangles
 	for (auto tri : trangles)
@@ -320,15 +330,16 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 	bool clickedOnTheBoard = false;
 	if (IsFocused())
 	{
-		if ((*_chess)._turn == _myTurn)
-			if (!(*_chess)._pieceInMotion)
-				if (GetMouse(0).bPressed)
-				{
-					_pieceSelector = true;
-					_mouseSelectX = GetMouseX(); // Initialize mouseX
-					_mouseSelectY = GetMouseY(); // Initialize mouseY
-					std::cout << "(" << _mouseSelectX << ", " << _mouseSelectY << ")" << std::endl;
-				}
+		if (!(*_chess)._pawnPromotion.isPromoting)
+			if ((*_chess)._turn == _myTurn)
+				if (!(*_chess)._pieceInMotion)
+					if (GetMouse(0).bPressed)
+					{
+						_pieceSelector = true;
+						_mouseSelectX = GetMouseX(); // Initialize mouseX
+						_mouseSelectY = GetMouseY(); // Initialize mouseY
+						std::cout << "(" << _mouseSelectX << ", " << _mouseSelectY << ")" << std::endl;
+					}
 	}
 
 	for (auto& triToRaster : vecTrianglesToRaster)
@@ -378,11 +389,19 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 		// Draw the transformed, viewed, clipped, projected, sorted, clipped triangles
 		for (auto& t : listTriangles)
 		{
+			_decaltex = nullptr; // Reset the decal
+
 			// White and Green marble for the player peices
 			if (t.color.r == 255 && t.color.g == 0 && t.color.b == 0) // Color was red
-				decaltex = decaltexWH;
+				_decaltex = _decaltexWH;
 			if (t.color.r == 0 && t.color.g == 255 && t.color.b == 255) // Color was light blue
-				decaltex = decaltexGR;
+				_decaltex = _decaltexGR;
+
+			// Set decal to Overlay.png empty tile or occupied tile
+			if (t.color.r == 255 && t.color.g == 255 && t.color.b == 25) // Color was yellow
+				_decaltex = _decaltexOverlay;
+			if (t.color.r == 255 && t.color.g == 255 && t.color.b == 20) // Color was light blue
+				_decaltex = _decaltexOverlayAttack;
 
 			// Make chessboard brown marble
 			if (t.color.r == 106 && t.color.g == 181 && t.color.b == 0) // Color was a green
@@ -401,7 +420,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 					TexturedTriangle(t.p[0].x, t.p[0].y, t.t[0].u * 256.0f / 48.0f, t.t[0].v * 256.0f / 48.0f, t.t[0].w,
 						t.p[1].x, t.p[1].y, t.t[1].u * 256.0f / 48.0f, t.t[1].v * 256.0f / 48.0f, t.t[1].w,
 						t.p[2].x, t.p[2].y, t.t[2].u * 256.0f / 48.0f, t.t[2].v * 256.0f / 48.0f, t.t[2].w,
-						decaltexBoard, t.color, selectedtri);
+						_decaltexBoard, t.color, selectedtri);
 
 					if (selectedtri)
 					{
@@ -412,24 +431,35 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 					continue;
 				}
 				else
-					decaltex = decaltexBR;
+					_decaltex = _decaltexBR;
 			}
 
 			TexturedTriangle(t.p[0].x, t.p[0].y, t.t[0].u, t.t[0].v, t.t[0].w,
 				t.p[1].x, t.p[1].y, t.t[1].u, t.t[1].v, t.t[1].w,
 				t.p[2].x, t.p[2].y, t.t[2].u, t.t[2].v, t.t[2].w,
-				decaltex, t.color);
+				_decaltex, t.color);
 		}
 	}
 
 	if (_pieceSelector && _selectedPiece.piecePresent) // If we've picked a tile and we have a pointer to the piece we want to move
 	{
 		int tile = (*_chess)._tilesAndTime.newTile;
-		if (_availableTiles.end() != std::find_if(_availableTiles.begin(), _availableTiles.end(), [tile](const tileAvailability& t) { return (t._tile == tile); } ))
+		if (_availableTiles.end() != std::find_if(_availableTiles.begin(), _availableTiles.end(), [tile](const tileAvailability& t) { return (t._tile == tile); }))
 		{
-			(*_chess)._turn = 0;
-			// Move the piece 
-			(*_chess)._pieceInMotion = true;
+			if (_selectedPiece.pieceTypeNTeam == 1 || _selectedPiece.pieceTypeNTeam == 7)
+				if (tile % 8 == 0 || tile % 8 == 7)
+					if (!(*_chess)._pawnPromotion.hasBeenPromoted)
+						(*_chess)._pawnPromotion.isPromoting = true;
+
+			if (!(*_chess)._pawnPromotion.isPromoting)
+			{
+				(*_chess)._turn = 0;
+				// Move the piece 
+				(*_chess)._pieceInMotion = true;
+
+				_availableTiles.clear(); // Clear the availble tiles
+				std::cout << "tiles cleared" << std::endl;
+			}
 		}
 		else // Pick a new piece
 		{
@@ -438,7 +468,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 		_pieceSelector = false;
 	}
 
-	if ((*_chess)._pieceInMotion && _selectedPiece.piecePresent) // player 1 runs the piece moving time
+	if ((*_chess)._pieceInMotion && _selectedPiece.piecePresent)
 	{
 		std::cout << "Picked destination" << std::endl;
 		_selectedPiece.piecePresent = false;
@@ -456,6 +486,50 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 		_pieceSelector = false;
 	}
 
+	// For pawn promoting to another piece
+	if ((*_chess)._pawnPromotion.isPromoting)
+	{
+		if ((*_chess)._turn == _myTurn-1)
+		{
+			DrawPartialDecal({ 64.0f, 96.0f }, _decaltexPawnChangeScreen, { 0.0f, 0.0f }, { 128.0f, 97.0f }, { 3.0f, 3.0f });
+			if (IsFocused())
+			{
+				if (_pawnChangeScreenDelay < 0.7f)
+					_pawnChangeScreenDelay += fElapsedTime;
+				else
+					if (GetMouse(0).bPressed)
+					{
+						_pawnChangeScreenDelay = 0.0f;
+
+						_mouseSelectX = GetMouseX(); // Initialize mouseX
+						_mouseSelectY = GetMouseY(); // Initialize mouseY
+						std::cout << "(" << _mouseSelectX << ", " << _mouseSelectY << ")" << std::endl;
+						if (_mouseSelectX > 154 && _mouseSelectX < 358)
+						{
+							int arr[4] = { 4, 3, 2, 6 }; // Need an array of piece type to make things easier here
+							for (int i = 0; i < 4; i++)
+								if (_mouseSelectY > 141 + i * 51 && _mouseSelectY < 189 + i * 51)
+								{
+									(*_chess)._pawnPromotion.type = arr[i] + 6 * (_myTurn - 1);
+									std::cout << "Client read pawnChange selection: " << (*_chess)._pawnPromotion.type << std::endl;
+									(*_chess)._pawnPromotion.isPromoting = false;
+								}
+						}
+					};
+			}
+			if ((*_chess)._pawnPromotion.type != 0)
+			{
+				(*_chess)._pawnPromotion.hasBeenPromoted = true;
+				(*_chess)._turn = 0;
+				// Move the piece 
+				(*_chess)._pieceInMotion = true;
+
+				_availableTiles.clear(); // Clear the availble tiles
+				std::cout << "tiles cleared" << std::endl;
+				//_selectedPiece.piecePresent = true;
+			}
+		}
+	}
 	return true;
 }
 
@@ -1175,6 +1249,22 @@ void trangleSubLoader(const pieceOrBoard& obj, vector<triangle>& trangles)
 		trangles.push_back(obj._tris[i]);
 }
 
+void trangleSubLoaderOverlay(const BoardOverlay& overlay, const vector<tileAvailability> availables, vector<triangle>& trangles)
+{
+	for (const auto t : availables)
+	{
+		trangles.push_back(overlay._tris[2 * t._tile]); // If empty available title
+		trangles.push_back(overlay._tris[2 * t._tile + 1]); // If empty available title
+
+		if (t._enemyPiecePresent) // If enemy occupies the available title
+		{
+			trangles.back().color = { 255, 255, 20 }; // Set for later change to red
+			trangles[trangles.size() - 2].color = { 255, 255, 20 };
+		}
+
+	};
+}
+
 void tranglePlayerSubLoader(const Player& p, vector<triangle>& trangles)
 {
 	for (int i = 0; i < 16; i++)
@@ -1487,4 +1577,60 @@ vector<tileAvailability> moveChecker(const int team, const int pieceType, const 
 	}
 	std::cout << std::endl;
 	return availableTiles;
+}
+
+void pawnChanger(const int pieceType, const int currentTileValue, GameBoard& board)
+{
+	auto playerPieces = [](const Player& p, const int currentTileValue) {
+		for (int i = 0; i < 16; i++)
+		{
+			if (p._pieces[i]._position == currentTileValue)
+				return i;
+		}
+	};
+
+	auto getPiecetTemplate = [](const Player& p, const int type) {
+		for (int i = 0; i < 16; i++)
+		{
+			if (p._pieces[i].PieceTypeNTeam == type)
+				return i;
+		}
+	};
+
+	auto pieceChange = [](Piece& c /*Copy*/, const Piece& o /*Origin*/) {
+		c.PieceTypeNTeam = o.PieceTypeNTeam;
+		c._triCount = o._triCount;
+		for (int i = 0; i < o._triCount; i++)
+		{
+			c._tris[i] = o._tris[i];
+		}
+	};
+
+	float squareDimension = 9.9675f;
+
+	int playerPiece = 16;
+	if (pieceType / 7 == 0)
+	{
+		playerPiece = playerPieces(board._pOne, currentTileValue);
+		if (playerPiece < 16)
+		{
+			pieceChange(board._pOne._pieces[playerPiece], board._pOne._pieces[getPiecetTemplate(board._pOne, pieceType)]);
+
+			board._pOne._pieces[playerPiece]._xPos = (currentTileValue / 8) * squareDimension;
+			board._pOne._pieces[playerPiece]._yPos = 7.0f * squareDimension; // Only one possible side
+			vertexCorrection(board._pOne._pieces[playerPiece]);
+		}
+	}
+	else
+	{
+		playerPiece = playerPieces(board._pTwo, currentTileValue);
+		if (playerPiece < 16)
+		{
+			pieceChange(board._pTwo._pieces[playerPiece], board._pTwo._pieces[getPiecetTemplate(board._pTwo, pieceType)]);
+
+			board._pTwo._pieces[playerPiece]._xPos = (currentTileValue / 8) * squareDimension;
+			board._pTwo._pieces[playerPiece]._yPos = 0.0f; // Only one possible side
+			vertexCorrection(board._pTwo._pieces[playerPiece]);
+		}
+	}
 }

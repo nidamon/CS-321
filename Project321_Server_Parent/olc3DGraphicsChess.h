@@ -210,11 +210,26 @@ struct tileAvailability
 	int _tile;
 };
 
+struct BoardOverlay : public Object
+{
+	using Object::Object;
+	BoardOverlay(float x, float y, float z) : Object(x, y, z, 128){}
+	triangle _tris[128];
+};
+
+struct PawnPromotion
+{
+	bool isPromoting = false;
+	bool hasBeenPromoted = false;
+	int type = 1;
+};
+
 struct GameBoard : public Object
 {
 	GameBoard(float offsetXY = 0.98375f, float squareDimension = 9.9675f, float boardTop = 0.0f) :
 		_pOne(offsetXY, squareDimension, boardTop, 0),
-		_pTwo(offsetXY, squareDimension, boardTop, 1)
+		_pTwo(offsetXY, squareDimension, boardTop, 1),
+		_overlay(3.5f * squareDimension, 3.5f * squareDimension, 0.2f, 128)
 	{
 		_xPos = 3.5f * squareDimension;
 		_yPos = 3.5f * squareDimension;
@@ -242,7 +257,10 @@ struct GameBoard : public Object
 	Player _pOne;
 	Player _pTwo;
 	TileData _boardTiles[8][8];
+	BoardOverlay _overlay;
+	PawnPromotion _pawnPromotion;
 };
+
 
 
 // Changes the player's color
@@ -260,7 +278,7 @@ TileData checkTileForPiece(GameBoard& game, int tileToCheck);
 
 // Moves the piece a given distance
 template<typename pieceOrBoard>
-void objectMov(pieceOrBoard& p, const float arr[3]/*deltaX, const float deltaY, const float deltaZ*/);
+void objectMov(pieceOrBoard& p, const float arr[3]);
 
 // Moves the piece to the new tile
 bool movePiece(Piece& p, const TileNTime& tilesAndTime, AttemptedMove& attemptedMove);
@@ -275,17 +293,19 @@ void vertexCorrection(pieceOrBoard& obj);
 template<typename pieceOrBoard>
 void trangleSubLoader(const pieceOrBoard& obj, vector<triangle>& trangles);
 
+void trangleSubLoaderOverlay(const BoardOverlay& overlay, const vector<tileAvailability> availables, vector<triangle>& trangles);
+
 void tranglePlayerSubLoader(const Player& p, vector<triangle>& trangles);
 
 vector<triangle> trangleLoader(const GameBoard& gameBoard);
 
 vector<tileAvailability> moveChecker(const int turn, const int pieceType, const int currentTileValue, const GameBoard& board);
 
+void pawnChanger(const int pieceType, const int currentTileValue, GameBoard& board);
 
 struct mesh
 {
-	int trisSize = 174;
-	vector<triangle> tris;
+	vector<triangle> _tris;
 
 	bool LoadFromChessBoardObjectFile(GameBoard& board, string sFilename, bool bHasTexture = false, int imageWidth = 128, int imageHeight = 128)
 	{
@@ -299,6 +319,7 @@ struct mesh
 
 		vector<int> dataLineStarting;
 
+		int objectcount = 0;
 		char junk;
 		while (!file.eof())
 		{
@@ -308,21 +329,20 @@ struct mesh
 			strstream s;
 			s << line;
 
-			int objectcount = 0;
 			if (line[0] == 'o')
 			{
-				dataLineStarting.push_back(tris.size());
+				dataLineStarting.push_back(_tris.size());
 				objectcount++;
-				std::cout << tris.size() << " ";
+				std::cout << _tris.size() << " ";
 			}
 
 			if (line[0] == 'v')
 			{
 				if (line[1] == 't')
 				{
-					if (objectcount == 12)
+					if (objectcount == 14)
 					{
-						imageHeight = 256;
+						imageWidth = 256;
 						imageHeight = 256;
 					}
 					vec2D v;
@@ -345,7 +365,7 @@ struct mesh
 				{
 					int f[3];
 					s >> junk >> f[0] >> f[1] >> f[2];
-					tris.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
+					_tris.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
 				}
 			}
 			else
@@ -370,7 +390,7 @@ struct mesh
 					tokens[nTokenCount].pop_back();
 
 
-					tris.push_back({ verts[stoi(tokens[0]) - 1], verts[stoi(tokens[2]) - 1], verts[stoi(tokens[4]) - 1],
+					_tris.push_back({ verts[stoi(tokens[0]) - 1], verts[stoi(tokens[2]) - 1], verts[stoi(tokens[4]) - 1],
 									 texs[stoi(tokens[1]) - 1], texs[stoi(tokens[3]) - 1], texs[stoi(tokens[5]) - 1] });
 				}
 			}
@@ -378,11 +398,55 @@ struct mesh
 
 		std::cout << std::endl;
 
-		dataLineStarting.push_back(174);
+		struct doubleTri
+		{
+			triangle _one;
+			triangle _two;
+		};
+
+		vector<doubleTri> trisToSort;
+		for (int i = _tris.size() - board._overlay._triCount; i < _tris.size(); i += 2)
+			trisToSort.push_back({ _tris[i], _tris[i+1] }); // Keep pairs of triangles as they already form their own squares
+		
+		std::sort(trisToSort.begin(), trisToSort.end(),
+			[](const doubleTri& a, const doubleTri& b) {
+
+				float xa = a._one.p[0].x;
+				float ya = a._one.p[0].y;
+				for (int k = 0; k < 3; k++) // Find lowest x and y
+				{
+					if (a._one.p[k].x < xa)
+						xa = a._one.p[k].x;
+					if (a._one.p[k].y < ya)
+						ya = a._one.p[k].y;
+				}
+
+				float xb = b._one.p[0].x;
+				float yb = b._one.p[0].y;
+				for (int k = 0; k < 3; k++) // Find lowest x and y
+				{
+					if (b._one.p[k].x < xb)
+						xb = b._one.p[k].x;
+					if (b._one.p[k].y < yb)
+						yb = b._one.p[k].y;
+				}
+
+				return (xa * 400.0f - ya < xb * 400.0f - yb);
+			});
+
+		int idx = 0;
+		for (int i = 0; i < trisToSort.size(); i++)
+		{
+			board._overlay._tris[idx] = trisToSort[i]._one;
+			board._overlay._tris[idx + 1] = trisToSort[i]._two;
+			idx += 2;
+		}
+
+		//dataLineStarting.push_back(174);
 		int triIndex = 0;
 		int modelIndex = 0;
 		//std::cout << "tris size: " << tris.size() << std::endl;
-		for (int i = 0; i < tris.size(); i++)
+		for (int i = 0; i < 174/*_tris.size()*/; i++)
 		{
 			if (i == dataLineStarting[modelIndex])
 			{
@@ -401,8 +465,8 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[11]._triCount << std::endl;
 					break;
 				}
-				board._pOne._pieces[10]._tris[triIndex] = tris[i];
-				board._pOne._pieces[13]._tris[triIndex] = tris[i];
+				board._pOne._pieces[10]._tris[triIndex] = _tris[i];
+				board._pOne._pieces[13]._tris[triIndex] = _tris[i];
 				break;
 
 			case 1: // WhPawns
@@ -412,7 +476,7 @@ struct mesh
 					break;
 				}
 				for (int k = 0; k < 8; k++)
-					board._pOne._pieces[k]._tris[triIndex] = tris[i];
+					board._pOne._pieces[k]._tris[triIndex] = _tris[i];
 				break;
 
 			case 2: // WhQueen
@@ -421,7 +485,7 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[13]._triCount << std::endl;
 					break;
 				}
-				board._pOne._pieces[12]._tris[triIndex] = tris[i];
+				board._pOne._pieces[12]._tris[triIndex] = _tris[i];
 				break;
 
 			case 3: // WhKnight
@@ -430,8 +494,8 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[10]._triCount << std::endl;
 					break;
 				}
-				board._pOne._pieces[9]._tris[triIndex] = tris[i];
-				board._pOne._pieces[14]._tris[triIndex] = tris[i];
+				board._pOne._pieces[9]._tris[triIndex] = _tris[i];
+				board._pOne._pieces[14]._tris[triIndex] = _tris[i];
 				break;
 
 			case 4: // WhKing
@@ -440,7 +504,7 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[12]._triCount << std::endl;
 					break;
 				}
-				board._pOne._pieces[11]._tris[triIndex] = tris[i];
+				board._pOne._pieces[11]._tris[triIndex] = _tris[i];
 				break;
 
 			case 5: // WhRook
@@ -449,8 +513,8 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[9]._triCount << std::endl;
 					break;
 				}
-				board._pOne._pieces[8]._tris[triIndex] = tris[i];
-				board._pOne._pieces[15]._tris[triIndex] = tris[i];
+				board._pOne._pieces[8]._tris[triIndex] = _tris[i];
+				board._pOne._pieces[15]._tris[triIndex] = _tris[i];
 				break;
 
 				// P2
@@ -460,8 +524,8 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._pieces[10]._tris[triIndex] = tris[i];
-				board._pTwo._pieces[13]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[10]._tris[triIndex] = _tris[i];
+				board._pTwo._pieces[13]._tris[triIndex] = _tris[i];
 				break;
 
 			case 7: // GrPawns
@@ -471,7 +535,7 @@ struct mesh
 					break;
 				}
 				for (int k = 0; k < 8; k++)
-					board._pTwo._pieces[k]._tris[triIndex] = tris[i];
+					board._pTwo._pieces[k]._tris[triIndex] = _tris[i];
 				break;
 
 			case 8: // GrQueen
@@ -480,7 +544,7 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._pieces[12]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[12]._tris[triIndex] = _tris[i];
 				break;
 
 			case 9: // GrKnight
@@ -489,8 +553,8 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._pieces[9]._tris[triIndex] = tris[i];
-				board._pTwo._pieces[14]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[9]._tris[triIndex] = _tris[i];
+				board._pTwo._pieces[14]._tris[triIndex] = _tris[i];
 				break;
 
 			case 10: // GrKing
@@ -499,7 +563,7 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._pieces[11]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[11]._tris[triIndex] = _tris[i];
 				break;
 
 			case 11: // GrRook
@@ -508,8 +572,8 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._pTwo._pieces[8]._tris[triIndex] = tris[i];
-				board._pTwo._pieces[15]._tris[triIndex] = tris[i];
+				board._pTwo._pieces[8]._tris[triIndex] = _tris[i];
+				board._pTwo._pieces[15]._tris[triIndex] = _tris[i];
 				break;
 
 			case 12: // Board
@@ -518,7 +582,7 @@ struct mesh
 					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
 					break;
 				}
-				board._tris[triIndex] = tris[i];
+				board._tris[triIndex] = _tris[i];
 				break;
 
 			default:
@@ -577,11 +641,15 @@ private:
 	float worldRotationY = 0.0f;
 	float worldRotationZ = 0.0f;
 
-	olc::Decal* decaltex;
-	olc::Decal* decaltexWH;
-	olc::Decal* decaltexGR;
-	olc::Decal* decaltexBR;
-	olc::Decal* decaltexBoard;
+	olc::Decal* _decaltex;
+	olc::Decal* _decaltexWH;
+	olc::Decal* _decaltexGR;
+	olc::Decal* _decaltexBR;
+	olc::Decal* _decaltexBoard;
+	olc::Decal* _decaltexOverlay;
+	olc::Decal* _decaltexOverlayAttack;
+
+	olc::Decal* _decaltexPawnChangeScreen;
 
 	float* pDepthBuffer = nullptr;
 
@@ -592,6 +660,8 @@ private:
 	int _myTurn;
 	TileData _selectedPiece = { false, 0 };
 	vector<tileAvailability> _availableTiles;
+
+	float _pawnChangeScreenDelay = 0.0f;
 
 	void TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
 		int x2, int y2, float u2, float v2, float w2,
