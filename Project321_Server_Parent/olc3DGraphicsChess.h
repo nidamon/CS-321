@@ -248,6 +248,7 @@ struct GameBoard : public Object
 			_boardTiles[_pTwo._pieces[i]._position / 8][_pTwo._pieces[i]._position % 8] = { true, _pTwo._pieces[i].PieceTypeNTeam };
 		}
 
+		LoadGame(*this);
 	};
 	int _turn = 0;
 	AttemptedMove _move = { 0 }; // EDIT
@@ -259,6 +260,9 @@ struct GameBoard : public Object
 	TileData _boardTiles[8][8];
 	BoardOverlay _overlay;
 	PawnPromotion _pawnPromotion;
+	int _winnerWinnerChickenDinner = 0;
+
+	void LoadGame(GameBoard& theGame);
 };
 
 
@@ -303,299 +307,8 @@ vector<tileAvailability> moveChecker(const int turn, const int pieceType, const 
 
 void pawnChanger(const int pieceType, const int currentTileValue, GameBoard& board);
 
-struct mesh
-{
-	vector<triangle> _tris;
 
-	bool LoadFromChessBoardObjectFile(GameBoard& board, string sFilename, bool bHasTexture = false, int imageWidth = 128, int imageHeight = 128)
-	{
-		ifstream file(sFilename);
-		if (!file.is_open())
-			return false;
-
-		// Local cache of verts
-		vector<vec3D> verts;
-		vector<vec2D> texs;
-
-		vector<int> dataLineStarting;
-
-		int objectcount = 0;
-		char junk;
-		while (!file.eof())
-		{
-			char line[128];
-			file.getline(line, 128);
-
-			strstream s;
-			s << line;
-
-			if (line[0] == 'o')
-			{
-				dataLineStarting.push_back(_tris.size());
-				objectcount++;
-				std::cout << _tris.size() << " ";
-			}
-
-			if (line[0] == 'v')
-			{
-				if (line[1] == 't')
-				{
-					if (objectcount == 14)
-					{
-						imageWidth = 256;
-						imageHeight = 256;
-					}
-					vec2D v;
-					s >> junk >> junk >> v.u >> v.v;
-					v.u = (v.u) * imageWidth;
-					v.v = (1.0f - v.v) * imageHeight;
-					texs.push_back(v);
-				}
-				else
-				{
-					vec3D v;
-					s >> junk >> v.x >> v.y >> v.z;
-					verts.push_back(v);
-				}
-			}
-
-			if (!bHasTexture)
-			{
-				if (line[0] == 'f')
-				{
-					int f[3];
-					s >> junk >> f[0] >> f[1] >> f[2];
-					_tris.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
-				}
-			}
-			else
-			{
-				if (line[0] == 'f')
-				{
-					s >> junk;
-
-					string tokens[6];
-					int nTokenCount = -1;
-
-
-					while (!s.eof())
-					{
-						char c = s.get();
-						if (c == ' ' || c == '/')
-							nTokenCount++;
-						else
-							tokens[nTokenCount].append(1, c);
-					}
-
-					tokens[nTokenCount].pop_back();
-
-
-					_tris.push_back({ verts[stoi(tokens[0]) - 1], verts[stoi(tokens[2]) - 1], verts[stoi(tokens[4]) - 1],
-									 texs[stoi(tokens[1]) - 1], texs[stoi(tokens[3]) - 1], texs[stoi(tokens[5]) - 1] });
-				}
-			}
-		}
-
-		std::cout << std::endl;
-
-		struct doubleTri
-		{
-			triangle _one;
-			triangle _two;
-		};
-
-		vector<doubleTri> trisToSort;
-		for (int i = _tris.size() - board._overlay._triCount; i < _tris.size(); i += 2)
-			trisToSort.push_back({ _tris[i], _tris[i+1] }); // Keep pairs of triangles as they already form their own squares
-		
-		std::sort(trisToSort.begin(), trisToSort.end(),
-			[](const doubleTri& a, const doubleTri& b) {
-
-				float xa = a._one.p[0].x;
-				float ya = a._one.p[0].y;
-				for (int k = 0; k < 3; k++) // Find lowest x and y
-				{
-					if (a._one.p[k].x < xa)
-						xa = a._one.p[k].x;
-					if (a._one.p[k].y < ya)
-						ya = a._one.p[k].y;
-				}
-
-				float xb = b._one.p[0].x;
-				float yb = b._one.p[0].y;
-				for (int k = 0; k < 3; k++) // Find lowest x and y
-				{
-					if (b._one.p[k].x < xb)
-						xb = b._one.p[k].x;
-					if (b._one.p[k].y < yb)
-						yb = b._one.p[k].y;
-				}
-
-				return (xa * 400.0f - ya < xb * 400.0f - yb);
-			});
-
-		int idx = 0;
-		for (int i = 0; i < trisToSort.size(); i++)
-		{
-			board._overlay._tris[idx] = trisToSort[i]._one;
-			board._overlay._tris[idx + 1] = trisToSort[i]._two;
-			idx += 2;
-		}
-
-		//dataLineStarting.push_back(174);
-		int triIndex = 0;
-		int modelIndex = 0;
-		//std::cout << "tris size: " << tris.size() << std::endl;
-		for (int i = 0; i < 174/*_tris.size()*/; i++)
-		{
-			if (i == dataLineStarting[modelIndex])
-			{
-				modelIndex++;
-				triIndex = 0;
-				//std::cout << "            modelIndex: " << modelIndex << std::endl;
-			}
-
-			//std::cout << "tri num: " << i << "   triIndex: " << triIndex << std::endl;
-			switch (modelIndex - 1)
-			{
-				// P1
-			case 0: // WhBishops
-				if (board._pOne._pieces[10]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[11]._triCount << std::endl;
-					break;
-				}
-				board._pOne._pieces[10]._tris[triIndex] = _tris[i];
-				board._pOne._pieces[13]._tris[triIndex] = _tris[i];
-				break;
-
-			case 1: // WhPawns
-				if (board._pOne._pieces[0]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[0]._triCount << std::endl;
-					break;
-				}
-				for (int k = 0; k < 8; k++)
-					board._pOne._pieces[k]._tris[triIndex] = _tris[i];
-				break;
-
-			case 2: // WhQueen
-				if (board._pOne._pieces[12]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[13]._triCount << std::endl;
-					break;
-				}
-				board._pOne._pieces[12]._tris[triIndex] = _tris[i];
-				break;
-
-			case 3: // WhKnight
-				if (board._pOne._pieces[9]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[10]._triCount << std::endl;
-					break;
-				}
-				board._pOne._pieces[9]._tris[triIndex] = _tris[i];
-				board._pOne._pieces[14]._tris[triIndex] = _tris[i];
-				break;
-
-			case 4: // WhKing
-				if (board._pOne._pieces[11]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[12]._triCount << std::endl;
-					break;
-				}
-				board._pOne._pieces[11]._tris[triIndex] = _tris[i];
-				break;
-
-			case 5: // WhRook
-				if (board._pOne._pieces[8]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[9]._triCount << std::endl;
-					break;
-				}
-				board._pOne._pieces[8]._tris[triIndex] = _tris[i];
-				board._pOne._pieces[15]._tris[triIndex] = _tris[i];
-				break;
-
-				// P2
-			case 6: // GrBishops
-				if (board._pTwo._pieces[10]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				board._pTwo._pieces[10]._tris[triIndex] = _tris[i];
-				board._pTwo._pieces[13]._tris[triIndex] = _tris[i];
-				break;
-
-			case 7: // GrPawns
-				if (board._pTwo._pieces[0]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				for (int k = 0; k < 8; k++)
-					board._pTwo._pieces[k]._tris[triIndex] = _tris[i];
-				break;
-
-			case 8: // GrQueen
-				if (board._pTwo._pieces[12]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				board._pTwo._pieces[12]._tris[triIndex] = _tris[i];
-				break;
-
-			case 9: // GrKnight
-				if (board._pTwo._pieces[9]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				board._pTwo._pieces[9]._tris[triIndex] = _tris[i];
-				board._pTwo._pieces[14]._tris[triIndex] = _tris[i];
-				break;
-
-			case 10: // GrKing
-				if (board._pTwo._pieces[11]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				board._pTwo._pieces[11]._tris[triIndex] = _tris[i];
-				break;
-
-			case 11: // GrRook
-				if (board._pTwo._pieces[8]._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				board._pTwo._pieces[8]._tris[triIndex] = _tris[i];
-				board._pTwo._pieces[15]._tris[triIndex] = _tris[i];
-				break;
-
-			case 12: // Board
-				if (board._triCount < triIndex)
-				{
-					std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
-					break;
-				}
-				board._tris[triIndex] = _tris[i];
-				break;
-
-			default:
-				break;
-			}
-
-			triIndex++;
-		}
-
-		return true;
-	}
-
-};
+bool LoadFromChessBoardObjectFile(GameBoard& board, string sFilename, bool bHasTexture = false, int imageWidth = 128, int imageHeight = 128);
 
 struct matrix4x4
 {
@@ -615,7 +328,6 @@ public:
 private:
 	GameBoard* _chess;
 
-	mesh meshCube;
 	matrix4x4 matProj;
 
 	// CAMERA
@@ -648,7 +360,7 @@ private:
 	olc::Decal* _decaltexBoard;
 	olc::Decal* _decaltexOverlay;
 	olc::Decal* _decaltexOverlayAttack;
-
+	olc::Decal* _decaltexWinScreen;
 	olc::Decal* _decaltexPawnChangeScreen;
 
 	float* pDepthBuffer = nullptr;

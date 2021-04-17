@@ -27,40 +27,13 @@ bool olc3DGraphics::OnUserCreate()
 {
 	pDepthBuffer = new float[ScreenWidth() * ScreenHeight()];
 
-
-	// Called in Server/Parent
-	if (_myTurn == 1)
-	{
-		meshCube.LoadFromChessBoardObjectFile((*_chess), "../Objects/Chess Board and 6 type pieces for 2 teams ReducedVTX.txt", true, 48, 48);
-		vertexCorrection((*_chess));
-		vertexCorrection((*_chess)._overlay);
-
-		subColorChange((*_chess), { 106, 181, 0, 0 });
-		subColorChange((*_chess)._overlay, { 255, 255, 25, 0 });
-
-		// All pieces
-		for (int i = 0; i < 16; i++)
-		{
-			// Player one's pieces
-			vertexCorrection((*_chess)._pOne._pieces[i]);
-			// Player two's pieces
-			vertexCorrection((*_chess)._pTwo._pieces[i]);
-		}
-
-		// Player one's color
-		colorChange((*_chess)._pOne, { 255, 0, 0, 0 });
-
-		// Player two's color
-		colorChange((*_chess)._pTwo, { 0, 255, 255, 0 });
-	}
-
 	_decaltexWH = new olc::Decal(new olc::Sprite("../Objects/whmarble.jpg"));
 	_decaltexGR = new olc::Decal(new olc::Sprite("../Objects/grmarble.jpg"));
 	_decaltexBR = new olc::Decal(new olc::Sprite("../Objects/brmarble.jpg"));
 	_decaltexBoard = new olc::Decal(new olc::Sprite("../Objects/Chess Board.png"));
 	_decaltexOverlay = new olc::Decal(new olc::Sprite("../Objects/Overlay.png"));
 	_decaltexOverlayAttack = new olc::Decal(new olc::Sprite("../Objects/OverlayAttack.png"));
-
+	_decaltexWinScreen = new olc::Decal(new olc::Sprite("../Objects/Win Screens.png"));
 	_decaltexPawnChangeScreen = new olc::Decal(new olc::Sprite("../Objects/PawnChange.png"));
 
 	std::cout << "Object loaded" << std::endl;
@@ -78,9 +51,9 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 
 	if (IsFocused())
 	{
-		if (GetKey(olc::X).bPressed) // Close the game
+		if (GetKey(olc::X).bPressed) // Unmap the game
 		{
-			(*_chess)._turn = -1;
+			_chess->_turn = -1;
 		}
 
 		if (GetKey(olc::Q).bHeld) // Ascend
@@ -216,8 +189,8 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 	vector<triangle> vecTrianglesToRaster;
 
 	vector<triangle> trangles = trangleLoader(*_chess);
-	if (_myTurn == (*_chess)._turn && _selectedPiece.piecePresent)
-		trangleSubLoaderOverlay((*_chess)._overlay, _availableTiles, trangles);
+	if (_myTurn == _chess->_turn && _selectedPiece.piecePresent)
+		trangleSubLoaderOverlay(_chess->_overlay, _availableTiles, trangles);
 
 	// Draw Triangles
 	for (auto tri : trangles)
@@ -330,9 +303,9 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 	bool clickedOnTheBoard = false;
 	if (IsFocused())
 	{
-		if (!(*_chess)._pawnPromotion.isPromoting)
-			if ((*_chess)._turn == _myTurn)
-				if (!(*_chess)._pieceInMotion)
+		if (!_chess->_pawnPromotion.isPromoting)
+			if (_chess->_turn == _myTurn)
+				if (!_chess->_pieceInMotion)
 					if (GetMouse(0).bPressed)
 					{
 						_pieceSelector = true;
@@ -424,7 +397,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 
 					if (selectedtri)
 					{
-						std::cout << "Tile Selected: " << (*_chess)._tilesAndTime.newTile << std::endl;
+						std::cout << "Tile Selected: " << _chess->_tilesAndTime.newTile << std::endl;
 						clickedOnTheBoard = true;
 						selectedtri = false;
 					}
@@ -443,19 +416,18 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 
 	if (_pieceSelector && _selectedPiece.piecePresent) // If we've picked a tile and we have a pointer to the piece we want to move
 	{
-		int tile = (*_chess)._tilesAndTime.newTile;
+		int tile = _chess->_tilesAndTime.newTile;
 		if (_availableTiles.end() != std::find_if(_availableTiles.begin(), _availableTiles.end(), [tile](const tileAvailability& t) { return (t._tile == tile); }))
 		{
 			if (_selectedPiece.pieceTypeNTeam == 1 || _selectedPiece.pieceTypeNTeam == 7)
 				if (tile % 8 == 0 || tile % 8 == 7)
-					if (!(*_chess)._pawnPromotion.hasBeenPromoted)
-						(*_chess)._pawnPromotion.isPromoting = true;
+					_chess->_pawnPromotion.isPromoting = true;
 
-			if (!(*_chess)._pawnPromotion.isPromoting)
+			if (!_chess->_pawnPromotion.isPromoting)
 			{
-				(*_chess)._turn = 0;
+				_chess->_turn = 0;
 				// Move the piece 
-				(*_chess)._pieceInMotion = true;
+				_chess->_pieceInMotion = true;
 
 				_availableTiles.clear(); // Clear the availble tiles
 				std::cout << "tiles cleared" << std::endl;
@@ -468,7 +440,7 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 		_pieceSelector = false;
 	}
 
-	if ((*_chess)._pieceInMotion && _selectedPiece.piecePresent)
+	if (_chess->_pieceInMotion && _selectedPiece.piecePresent)
 	{
 		std::cout << "Picked destination" << std::endl;
 		_selectedPiece.piecePresent = false;
@@ -476,20 +448,20 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 
 	if (_pieceSelector && !_selectedPiece.piecePresent && clickedOnTheBoard)
 	{
-		_selectedPiece = checkTileForPiece((*_chess), (*_chess)._tilesAndTime.newTile);
+		_selectedPiece = checkTileForPiece((*_chess), _chess->_tilesAndTime.newTile);
 		
 		if (_selectedPiece.piecePresent)
-			_availableTiles = moveChecker(_myTurn - 1, _selectedPiece.pieceTypeNTeam, (*_chess)._tilesAndTime.newTile, (*_chess));
+			_availableTiles = moveChecker(_myTurn - 1, _selectedPiece.pieceTypeNTeam, _chess->_tilesAndTime.newTile, (*_chess));
 
-		(*_chess)._tilesAndTime.oldTile = (*_chess)._tilesAndTime.newTile;
-		(*_chess)._move._pieceTypeNTeam = _selectedPiece.pieceTypeNTeam;
+		_chess->_tilesAndTime.oldTile = _chess->_tilesAndTime.newTile;
+		_chess->_move._pieceTypeNTeam = _selectedPiece.pieceTypeNTeam;
 		_pieceSelector = false;
 	}
 
 	// For pawn promoting to another piece
-	if ((*_chess)._pawnPromotion.isPromoting)
+	if (_chess->_pawnPromotion.isPromoting)
 	{
-		if ((*_chess)._turn == _myTurn-1)
+		if (_chess->_turn == _myTurn)
 		{
 			DrawPartialDecal({ 64.0f, 96.0f }, _decaltexPawnChangeScreen, { 0.0f, 0.0f }, { 128.0f, 97.0f }, { 3.0f, 3.0f });
 			if (IsFocused())
@@ -510,26 +482,30 @@ bool olc3DGraphics::OnUserUpdate(float fElapsedTime)
 							for (int i = 0; i < 4; i++)
 								if (_mouseSelectY > 141 + i * 51 && _mouseSelectY < 189 + i * 51)
 								{
-									(*_chess)._pawnPromotion.type = arr[i] + 6 * (_myTurn - 1);
-									std::cout << "Client read pawnChange selection: " << (*_chess)._pawnPromotion.type << std::endl;
-									(*_chess)._pawnPromotion.isPromoting = false;
+									_chess->_pawnPromotion.type = arr[i] + 6 * (_myTurn - 1);
+									std::cout << "Client read pawnChange selection: " << _chess->_pawnPromotion.type << std::endl;
+
+									_chess->_pawnPromotion.hasBeenPromoted = true;
+									_chess->_turn = 0;
+									_chess->_pieceInMotion = true;
+
+									_availableTiles.clear(); // Clear the availble tiles
+									std::cout << "tiles cleared" << std::endl;
 								}
 						}
 					};
 			}
-			if ((*_chess)._pawnPromotion.type != 0)
-			{
-				(*_chess)._pawnPromotion.hasBeenPromoted = true;
-				(*_chess)._turn = 0;
-				// Move the piece 
-				(*_chess)._pieceInMotion = true;
-
-				_availableTiles.clear(); // Clear the availble tiles
-				std::cout << "tiles cleared" << std::endl;
-				//_selectedPiece.piecePresent = true;
-			}
 		}
 	}
+
+	// The game is over
+	if (_chess->_winnerWinnerChickenDinner != 0)
+	{
+		DrawPartialDecal({ 64.0f, 96.0f }, _decaltexWinScreen, { 128.0f * float(_chess->_winnerWinnerChickenDinner - 1), 0.0f }, { 128.0f, 97.0f }, { 3.0f, 3.0f });
+		_chess->_turn = -1;
+	}
+
+
 	return true;
 }
 
@@ -638,7 +614,7 @@ void olc3DGraphics::TexturedTriangle(int x1, int y1, float u1, float v1, float w
 						if (selectedTri)
 						{
 							if (j == _mouseSelectX && i == _mouseSelectY)
-								(*_chess)._tilesAndTime.newTile = (int(tex_v / tex_w) / 32 + (int(tex_u / tex_w) / 32) * 8);
+								_chess->_tilesAndTime.newTile = (int(tex_v / tex_w) / 32 + (int(tex_u / tex_w) / 32) * 8);
 						}
 					}
 					else
@@ -709,7 +685,7 @@ void olc3DGraphics::TexturedTriangle(int x1, int y1, float u1, float v1, float w
 						if (selectedTri)
 						{
 							if (j == _mouseSelectX && i == _mouseSelectY)
-								(*_chess)._tilesAndTime.newTile = (int(tex_v / tex_w) / 32 + (int(tex_u / tex_w) / 32) * 8);
+								_chess->_tilesAndTime.newTile = (int(tex_v / tex_w) / 32 + (int(tex_u / tex_w) / 32) * 8);
 						}
 					}
 					else
@@ -1633,4 +1609,319 @@ void pawnChanger(const int pieceType, const int currentTileValue, GameBoard& boa
 			vertexCorrection(board._pTwo._pieces[playerPiece]);
 		}
 	}
+}
+
+
+bool LoadFromChessBoardObjectFile(GameBoard& board, string sFilename, bool bHasTexture, int imageWidth, int imageHeight)
+{
+	vector<triangle> _tris;
+	ifstream file(sFilename);
+	if (!file.is_open())
+		return false;
+
+	// Local cache of verts
+	vector<vec3D> verts;
+	vector<vec2D> texs;
+
+	vector<int> dataLineStarting;
+
+	int objectcount = 0;
+	char junk;
+	while (!file.eof())
+	{
+		char line[128];
+		file.getline(line, 128);
+
+		strstream s;
+		s << line;
+
+		if (line[0] == 'o')
+		{
+			dataLineStarting.push_back(_tris.size());
+			objectcount++;
+			std::cout << _tris.size() << " ";
+		}
+
+		if (line[0] == 'v')
+		{
+			if (line[1] == 't')
+			{
+				if (objectcount == 14)
+				{
+					imageWidth = 256;
+					imageHeight = 256;
+				}
+				vec2D v;
+				s >> junk >> junk >> v.u >> v.v;
+				v.u = (v.u) * imageWidth;
+				v.v = (1.0f - v.v) * imageHeight;
+				texs.push_back(v);
+			}
+			else
+			{
+				vec3D v;
+				s >> junk >> v.x >> v.y >> v.z;
+				verts.push_back(v);
+			}
+		}
+
+		if (!bHasTexture)
+		{
+			if (line[0] == 'f')
+			{
+				int f[3];
+				s >> junk >> f[0] >> f[1] >> f[2];
+				_tris.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
+			}
+		}
+		else
+		{
+			if (line[0] == 'f')
+			{
+				s >> junk;
+
+				string tokens[6];
+				int nTokenCount = -1;
+
+
+				while (!s.eof())
+				{
+					char c = s.get();
+					if (c == ' ' || c == '/')
+						nTokenCount++;
+					else
+						tokens[nTokenCount].append(1, c);
+				}
+
+				tokens[nTokenCount].pop_back();
+
+
+				_tris.push_back({ verts[stoi(tokens[0]) - 1], verts[stoi(tokens[2]) - 1], verts[stoi(tokens[4]) - 1],
+								 texs[stoi(tokens[1]) - 1], texs[stoi(tokens[3]) - 1], texs[stoi(tokens[5]) - 1] });
+			}
+		}
+	}
+
+	std::cout << std::endl;
+
+	struct doubleTri
+	{
+		triangle _one;
+		triangle _two;
+	};
+
+	vector<doubleTri> trisToSort;
+	for (int i = _tris.size() - board._overlay._triCount; i < _tris.size(); i += 2)
+		trisToSort.push_back({ _tris[i], _tris[i + 1] }); // Keep pairs of triangles as they already form their own squares
+
+	std::sort(trisToSort.begin(), trisToSort.end(),
+		[](const doubleTri& a, const doubleTri& b) {
+
+			float xa = a._one.p[0].x;
+			float ya = a._one.p[0].y;
+			for (int k = 0; k < 3; k++) // Find lowest x and y
+			{
+				if (a._one.p[k].x < xa)
+					xa = a._one.p[k].x;
+				if (a._one.p[k].y < ya)
+					ya = a._one.p[k].y;
+			}
+
+			float xb = b._one.p[0].x;
+			float yb = b._one.p[0].y;
+			for (int k = 0; k < 3; k++) // Find lowest x and y
+			{
+				if (b._one.p[k].x < xb)
+					xb = b._one.p[k].x;
+				if (b._one.p[k].y < yb)
+					yb = b._one.p[k].y;
+			}
+
+			return (xa * 400.0f - ya < xb * 400.0f - yb);
+		});
+
+	int idx = 0;
+	for (int i = 0; i < trisToSort.size(); i++)
+	{
+		board._overlay._tris[idx] = trisToSort[i]._one;
+		board._overlay._tris[idx + 1] = trisToSort[i]._two;
+		idx += 2;
+	}
+
+	//dataLineStarting.push_back(174);
+	int triIndex = 0;
+	int modelIndex = 0;
+	//std::cout << "tris size: " << tris.size() << std::endl;
+	for (int i = 0; i < 174/*_tris.size()*/; i++)
+	{
+		if (i == dataLineStarting[modelIndex])
+		{
+			modelIndex++;
+			triIndex = 0;
+			//std::cout << "            modelIndex: " << modelIndex << std::endl;
+		}
+
+		//std::cout << "tri num: " << i << "   triIndex: " << triIndex << std::endl;
+		switch (modelIndex - 1)
+		{
+			// P1
+		case 0: // WhBishops
+			if (board._pOne._pieces[10]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[11]._triCount << std::endl;
+				break;
+			}
+			board._pOne._pieces[10]._tris[triIndex] = _tris[i];
+			board._pOne._pieces[13]._tris[triIndex] = _tris[i];
+			break;
+
+		case 1: // WhPawns
+			if (board._pOne._pieces[0]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[0]._triCount << std::endl;
+				break;
+			}
+			for (int k = 0; k < 8; k++)
+				board._pOne._pieces[k]._tris[triIndex] = _tris[i];
+			break;
+
+		case 2: // WhQueen
+			if (board._pOne._pieces[12]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[13]._triCount << std::endl;
+				break;
+			}
+			board._pOne._pieces[12]._tris[triIndex] = _tris[i];
+			break;
+
+		case 3: // WhKnight
+			if (board._pOne._pieces[9]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[10]._triCount << std::endl;
+				break;
+			}
+			board._pOne._pieces[9]._tris[triIndex] = _tris[i];
+			board._pOne._pieces[14]._tris[triIndex] = _tris[i];
+			break;
+
+		case 4: // WhKing
+			if (board._pOne._pieces[11]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[12]._triCount << std::endl;
+				break;
+			}
+			board._pOne._pieces[11]._tris[triIndex] = _tris[i];
+			break;
+
+		case 5: // WhRook
+			if (board._pOne._pieces[8]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << " triCount: " << board._pOne._pieces[9]._triCount << std::endl;
+				break;
+			}
+			board._pOne._pieces[8]._tris[triIndex] = _tris[i];
+			board._pOne._pieces[15]._tris[triIndex] = _tris[i];
+			break;
+
+			// P2
+		case 6: // GrBishops
+			if (board._pTwo._pieces[10]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			board._pTwo._pieces[10]._tris[triIndex] = _tris[i];
+			board._pTwo._pieces[13]._tris[triIndex] = _tris[i];
+			break;
+
+		case 7: // GrPawns
+			if (board._pTwo._pieces[0]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			for (int k = 0; k < 8; k++)
+				board._pTwo._pieces[k]._tris[triIndex] = _tris[i];
+			break;
+
+		case 8: // GrQueen
+			if (board._pTwo._pieces[12]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			board._pTwo._pieces[12]._tris[triIndex] = _tris[i];
+			break;
+
+		case 9: // GrKnight
+			if (board._pTwo._pieces[9]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			board._pTwo._pieces[9]._tris[triIndex] = _tris[i];
+			board._pTwo._pieces[14]._tris[triIndex] = _tris[i];
+			break;
+
+		case 10: // GrKing
+			if (board._pTwo._pieces[11]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			board._pTwo._pieces[11]._tris[triIndex] = _tris[i];
+			break;
+
+		case 11: // GrRook
+			if (board._pTwo._pieces[8]._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			board._pTwo._pieces[8]._tris[triIndex] = _tris[i];
+			board._pTwo._pieces[15]._tris[triIndex] = _tris[i];
+			break;
+
+		case 12: // Board
+			if (board._triCount < triIndex)
+			{
+				std::cout << "TriIndex error! BREAKING " << modelIndex << std::endl;
+				break;
+			}
+			board._tris[triIndex] = _tris[i];
+			break;
+
+		default:
+			break;
+		}
+
+		triIndex++;
+	}
+
+	return true;
+}
+
+void GameBoard::LoadGame(GameBoard& theGame)
+{
+	LoadFromChessBoardObjectFile(theGame, "../Objects/Chess Board and 6 type pieces for 2 teams ReducedVTX.txt", true, 48, 48);
+	vertexCorrection(theGame);
+	vertexCorrection(theGame._overlay);
+
+	subColorChange(theGame, { 106, 181, 0, 0 });
+	subColorChange(theGame._overlay, { 255, 255, 25, 0 });
+
+	// All pieces
+	for (int i = 0; i < 16; i++)
+	{
+		// Player one's pieces
+		vertexCorrection(theGame._pOne._pieces[i]);
+		// Player two's pieces
+		vertexCorrection(theGame._pTwo._pieces[i]);
+	}
+
+	// Player one's color
+	colorChange(theGame._pOne, { 255, 0, 0, 0 });
+
+	// Player two's color
+	colorChange(theGame._pTwo, { 0, 255, 255, 0 });
 }

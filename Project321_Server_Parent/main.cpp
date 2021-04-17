@@ -19,7 +19,7 @@ using std::vector;
 using std::chrono::steady_clock;
 #include "olc3DGraphicsChess.h"
 
-GameBoard game[1]; // Using an array got me the const void* that I needed to move the memory
+    GameBoard game[1]; // Using an array got me the const void* that I needed to move the memory
 
 int main()
 {
@@ -175,6 +175,17 @@ int main()
             else
             {
                 mappedViewChess[0]._turn = turnHold;
+            }
+
+            if (mappedViewChess[0]._pOne._pieces[11]._position == -1)
+            {
+                cout << "Server sees victory for Player 2" << endl;
+                mappedViewChess[0]._winnerWinnerChickenDinner = 2;
+            }
+            if (mappedViewChess[0]._pTwo._pieces[11]._position == -1)
+            {
+                cout << "Server sees victory for Player 1" << endl;
+                mappedViewChess[0]._winnerWinnerChickenDinner = 1;
             }
         }
     }
